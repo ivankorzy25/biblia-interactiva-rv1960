@@ -1,18 +1,43 @@
 # Scripts de corrección (no necesarios en producción)
 analizar-y-corregir-biblia.js
 corregir-biblia.js
+corregir-biblia.bat
+corregir-biblia.ps1
+corregir-texto.ps1
 
 # Archivos de respaldo y reportes
 biblia-data-backup.js
 biblia-data-corregido.js
 biblia-data-fixed.js
+biblia-data-complete.js
+biblia-data-original.js
 reporte-correcciones.txt
 
 # Archivo HTML original (usamos index.html)
 biblia.html
 
+# Archivos de descarga y helpers
+download-bible.html
+download-jesus-words.html
+download-referencias.html
+fix-bible-text.html
+
+# Instrucciones y documentación de desarrollo
+COMO-AGREGAR-REFERENCIAS.md
+INSTRUCCIONES-*.md
+
 # Configuración temporal
 repo-config.json
+pages-config.json
+
+# Archivos de sistema Windows
+nul
+Thumbs.db
+desktop.ini
+
+# Carpetas de desarrollo
+.claude/
+scanner pdf papel/
 
 # Git
 .git/
