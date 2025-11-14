@@ -1,0 +1,18 @@
+# Scripts de corrección (no necesarios en producción)
+analizar-y-corregir-biblia.js
+corregir-biblia.js
+
+# Archivos de respaldo y reportes
+biblia-data-backup.js
+biblia-data-corregido.js
+biblia-data-fixed.js
+reporte-correcciones.txt
+
+# Archivo HTML original (usamos index.html)
+biblia.html
+
+# Configuración temporal
+repo-config.json
+
+# Git
+.git/

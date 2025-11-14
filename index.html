@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biblia Interactiva RV1960</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.4em;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .version-badge {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        /* Navigation Bar */
+        .nav-bar {
+            background: white;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .nav-content {
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .nav-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            position: relative;
+        }
+
+        select {
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            position: relative;
+            z-index: 10;
+        }
+
+        select:hover {
+            border-color: #667eea;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            z-index: 150;
+        }
+
+        #bookSelect {
+            display: none; /* Ocultar select nativo */
+        }
+
+        /* Custom Book Dropdown */
+        .custom-book-select {
+            position: relative;
+            min-width: 200px;
+        }
+
+        .custom-book-select-trigger {
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .custom-book-select-trigger:hover {
+            border-color: #667eea;
+        }
+
+        .custom-book-select-trigger.active {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .custom-book-select-arrow {
+            margin-left: 10px;
+            font-size: 0.8em;
+            transition: transform 0.2s;
+        }
+
+        .custom-book-select-trigger.active .custom-book-select-arrow {
+            transform: rotate(180deg);
+        }
+
+        .custom-book-dropdown {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.2);
+            padding: 30px 40px;
+            width: 90vw;
+            max-width: 1400px;
+            max-height: 90vh;
+        }
+
+        .custom-book-dropdown.active {
+            display: block;
+        }
+
+        .custom-book-dropdown-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 9999;
+        }
+
+        .custom-book-dropdown-overlay.active {
+            display: block;
+        }
+
+        .book-section-title {
+            font-weight: 700;
+            font-size: 1em;
+            color: #667eea;
+            margin-bottom: 12px;
+            margin-top: 8px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .book-section-title:first-child {
+            margin-top: 0;
+        }
+
+        .books-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 6px;
+            margin-bottom: 15px;
+        }
+
+        .book-option {
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85em;
+            background: #f8f9fa;
+            border: 2px solid transparent;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .book-option:hover {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .book-option.new-testament {
+            background-color: rgba(220, 53, 69, 0.08);
+        }
+
+        .book-option.new-testament:hover {
+            background-color: rgba(220, 53, 69, 0.15);
+            border-color: #dc3545;
+        }
+
+        /* Back button */
+        .back-to-books-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+
+        .back-to-books-btn:hover {
+            background: #5568d3;
+            transform: translateX(-3px);
+        }
+
+        /* Chapter selection */
+        .chapter-section-title {
+            font-weight: 700;
+            font-size: 1.2em;
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .chapters-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .chapter-option {
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.95em;
+            font-weight: 600;
+            background: #f8f9fa;
+            border: 2px solid transparent;
+            text-align: center;
+            color: #333;
+        }
+
+        .chapter-option:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        @media (max-width: 1200px) {
+            .books-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+
+            .chapters-grid {
+                grid-template-columns: repeat(8, 1fr);
+            }
+        }
+
+        @media (max-width: 900px) {
+            .books-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+
+            .chapters-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+
+            .custom-book-dropdown {
+                padding: 20px 25px;
+                width: 95vw;
+                max-height: 85vh;
+                overflow-y: auto;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .books-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 5px;
+            }
+
+            .chapters-grid {
+                grid-template-columns: repeat(5, 1fr);
+                gap: 6px;
+            }
+
+            .book-option {
+                padding: 6px 8px;
+                font-size: 0.75em;
+            }
+
+            .chapter-option {
+                padding: 10px;
+                font-size: 0.85em;
+            }
+
+            .custom-book-dropdown {
+                padding: 15px;
+            }
+        }
+
+        #chapterSelect {
+            min-width: 120px;
+        }
+
+        .nav-button {
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.2s;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .nav-button:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .nav-button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .nav-button:disabled:hover {
+            background: white;
+            color: #555;
+            border-color: #e0e0e0;
+        }
+
+        /* Search Box */
+        .search-container {
+            position: relative;
+            flex: 1;
+            max-width: 400px;
+            min-width: 250px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 40px 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-input::placeholder {
+            color: #999;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 1.2em;
+            pointer-events: none;
+        }
+
+        .search-clear {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #e0e0e0;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.7em;
+            cursor: pointer;
+            color: #666;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .search-clear.active {
+            display: flex;
+        }
+
+        .search-clear:hover {
+            background: #d0d0d0;
+            color: #333;
+        }
+
+        /* Search Results Dropdown */
+        .search-results {
+            position: absolute;
+            top: calc(100% + 5px);
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            max-height: 500px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .search-results.active {
+            display: block;
+        }
+
+        .search-results-header {
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 0.85em;
+            color: #666;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .search-result-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .search-result-item:hover {
+            background: rgba(102, 126, 234, 0.08);
+        }
+
+        .search-result-title {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 0.95em;
+            margin-bottom: 4px;
+        }
+
+        .search-result-reference {
+            font-size: 0.85em;
+            color: #999;
+            margin-bottom: 4px;
+        }
+
+        .search-result-text {
+            font-size: 0.9em;
+            color: #555;
+            line-height: 1.5;
+        }
+
+        .search-result-highlight {
+            background: #fff9c4;
+            font-weight: 600;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
+        .search-no-results {
+            padding: 40px 15px;
+            text-align: center;
+            color: #999;
+        }
+
+        .search-no-results-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            opacity: 0.3;
+        }
+
+        .search-loading {
+            padding: 20px;
+            text-align: center;
+            color: #667eea;
+            font-size: 0.9em;
+        }
+
+        /* Font Size Controls */
+        .font-size-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .font-size-label {
+            font-size: 0.9em;
+            color: #777;
+            font-weight: 500;
+        }
+
+        .font-size-btn {
+            padding: 8px 12px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+            font-weight: 600;
+            color: #555;
+            min-width: 38px;
+        }
+
+        .font-size-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .font-size-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        /* Main Content Area */
+        .main-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .chapter-header {
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .chapter-title {
+            font-size: 2em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .chapter-subtitle {
+            color: #777;
+            font-size: 0.95em;
+        }
+
+        /* Reader Controls */
+        .reader-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            padding: 8px 16px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .control-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .control-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        /* Verses */
+        .verses-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            margin-bottom: 40px;
+        }
+
+        .verse {
+            display: inline;
+            line-height: 1.9;
+            font-size: var(--verse-font-size, 1.1em);
+            color: #333;
+        }
+
+        .verse::after {
+            content: " ";
+        }
+
+        /* Font Size Classes */
+        .font-size-xl .verse,
+        .font-size-xl .chapter-modal-content .verse {
+            --verse-font-size: 1.1em;
+        }
+
+        .font-size-large .verse,
+        .font-size-large .chapter-modal-content .verse {
+            --verse-font-size: 1.0em;
+        }
+
+        .font-size-medium .verse,
+        .font-size-medium .chapter-modal-content .verse {
+            --verse-font-size: 0.9em;
+        }
+
+        .font-size-small .verse,
+        .font-size-small .chapter-modal-content .verse {
+            --verse-font-size: 0.8em;
+        }
+
+        .verse-number {
+            font-weight: 600;
+            color: #999;
+            margin-right: 4px;
+            font-size: 0.7em;
+            vertical-align: super;
+            user-select: none;
+            line-height: 0;
+        }
+
+        /* Section Titles */
+        .section-title {
+            font-weight: 700;
+            color: #667eea;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.05em;
+            display: block;
+            clear: both;
+        }
+
+        .section-title:first-child {
+            margin-top: 0;
+        }
+
+        .jesus-words {
+            color: #c41e3a;
+            font-weight: 600;
+        }
+
+        /* Concordance Words */
+        .concordance-word {
+            cursor: pointer;
+            border-bottom: 1px dotted #667eea;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .concordance-word:hover {
+            background: rgba(102, 126, 234, 0.1);
+            border-bottom: 2px solid #667eea;
+        }
+
+        .concordance-word.active {
+            background: rgba(102, 126, 234, 0.2);
+            border-bottom: 2px solid #667eea;
+        }
+
+        .cross-reference {
+            color: #27ae60;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.6em;
+            vertical-align: super;
+            padding: 0 1px;
+            transition: opacity 0.3s ease, color 0.2s ease;
+            font-weight: 500;
+        }
+
+        .cross-reference:hover {
+            color: #229954;
+            text-decoration: underline;
+        }
+
+        .ref-separator {
+            color: #999;
+            font-size: 0.6em;
+            vertical-align: super;
+            padding: 0 2px;
+            user-select: none;
+        }
+
+        /* Concordance Panel (Sidebar) */
+        .concordance-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 250;
+            display: none;
+            animation: fadeIn 0.2s;
+        }
+
+        .concordance-overlay.active {
+            display: block;
+        }
+
+        .concordance-panel {
+            position: fixed;
+            top: 0;
+            left: -450px;
+            bottom: 0;
+            width: 450px;
+            background: white;
+            box-shadow: 4px 0 12px rgba(0,0,0,0.15);
+            z-index: 251;
+            transition: left 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .concordance-panel.active {
+            left: 0;
+        }
+
+        .concordance-header {
+            padding: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .concordance-header h3 {
+            font-size: 1.3em;
+            margin-bottom: 5px;
+        }
+
+        .concordance-word-title {
+            font-size: 1.8em;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .concordance-count {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .close-concordance-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            font-size: 1.8em;
+            cursor: pointer;
+            color: white;
+            padding: 0;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+            position: absolute;
+            right: 15px;
+            top: 15px;
+        }
+
+        .close-concordance-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .concordance-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .concordance-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .concordance-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .concordance-reference {
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+        }
+
+        .concordance-text {
+            color: #555;
+            line-height: 1.7;
+            font-size: 0.95em;
+        }
+
+        .concordance-highlight {
+            background: #fff9c4;
+            font-weight: 600;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .concordance-loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #667eea;
+        }
+
+        .concordance-loading-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* References Panel (Sidebar) */
+        .references-overlay {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 200;
+            display: none;
+            animation: fadeIn 0.2s;
+        }
+
+        .references-overlay.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .references-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            bottom: 0;
+            width: 400px;
+            background: white;
+            box-shadow: -4px 0 12px rgba(0,0,0,0.15);
+            z-index: 201;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .references-panel.active {
+            right: 0;
+        }
+
+        .references-header {
+            padding: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+        }
+
+        .references-header h3 {
+            font-size: 1.3em;
+            color: #2c3e50;
+        }
+
+        .close-references-btn {
+            background: transparent;
+            border: none;
+            font-size: 1.8em;
+            cursor: pointer;
+            color: #777;
+            padding: 0;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .close-references-btn:hover {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .references-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .reference-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .reference-title {
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+        }
+
+        .reference-text {
+            color: #555;
+            line-height: 1.7;
+            font-size: 0.95em;
+        }
+
+        .reference-nav-btn {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 10px 18px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+        }
+
+        .reference-nav-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .reference-nav-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Verse Highlight Effect */
+        .verse.highlight {
+            background: #fff9c4;
+            padding: 3px 6px;
+            border-radius: 4px;
+            box-shadow: 0 0 0 3px #fff9c4;
+            animation: highlightPulse 5s ease-out;
+        }
+
+        @keyframes highlightPulse {
+            0% {
+                background: #ffeb3b;
+                box-shadow: 0 0 0 3px #ffeb3b;
+            }
+            20% {
+                background: #fff9c4;
+                box-shadow: 0 0 0 3px #fff9c4;
+            }
+            100% {
+                background: #fff9c4;
+                box-shadow: 0 0 0 3px #fff9c4;
+            }
+        }
+
+        /* Chapter Modal */
+        .chapter-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 300;
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .chapter-modal-overlay.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chapter-modal {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .chapter-modal-header {
+            padding: 20px 25px;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .chapter-modal-title {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .chapter-modal-close {
+            background: transparent;
+            border: none;
+            font-size: 2em;
+            cursor: pointer;
+            color: #777;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .chapter-modal-close:hover {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .chapter-modal-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+            line-height: 1.9;
+        }
+
+        .chapter-modal-content .verse {
+            display: inline;
+            font-size: 1.05em;
+        }
+
+        .chapter-modal-content .verse::after {
+            content: " ";
+        }
+
+        .chapter-modal-content .verse.highlight::before {
+            content: '📍 ';
+            font-size: 1em;
+        }
+
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 60px 20px;
+            font-size: 1.1em;
+        }
+
+        .empty-state-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            opacity: 0.3;
+        }
+
+        /* Floating Navigation Arrows */
+        .float-nav {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.5em;
+            color: #667eea;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .float-nav.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .float-nav:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .float-nav:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .float-nav-prev {
+            left: 20px;
+        }
+
+        .float-nav-next {
+            right: 20px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-content {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .nav-group {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .nav-group[style*="margin-left"] {
+                margin-left: 0 !important;
+            }
+
+            select, .nav-button {
+                width: 100%;
+            }
+
+            .search-container {
+                max-width: none;
+                min-width: 100%;
+                margin-bottom: 10px;
+            }
+
+            .search-results {
+                max-height: 300px;
+            }
+
+            .font-size-controls {
+                justify-content: center;
+                padding: 8px 0;
+            }
+
+            .font-size-label {
+                font-size: 0.85em;
+            }
+
+            .font-size-btn {
+                padding: 8px 10px;
+                font-size: 0.8em;
+                min-width: 35px;
+            }
+
+            .verses-container {
+                padding: 25px 20px;
+            }
+
+            /* Override font sizes for mobile */
+            .font-size-xl .verse {
+                --verse-font-size: 1.05em;
+            }
+
+            .font-size-large .verse {
+                --verse-font-size: 0.95em;
+            }
+
+            .font-size-medium .verse {
+                --verse-font-size: 0.85em;
+            }
+
+            .font-size-small .verse {
+                --verse-font-size: 0.75em;
+            }
+
+            .references-panel {
+                width: 100%;
+                right: -100%;
+            }
+
+            .concordance-panel {
+                width: 100%;
+                left: -100%;
+            }
+
+            .chapter-title {
+                font-size: 1.6em;
+            }
+
+            .float-nav {
+                width: 40px;
+                height: 40px;
+                font-size: 1.2em;
+            }
+
+            .float-nav-prev {
+                left: 10px;
+            }
+
+            .float-nav-next {
+                right: 10px;
+            }
+
+            .chapter-modal {
+                width: 95%;
+                max-height: 90vh;
+            }
+
+            .chapter-modal-header {
+                padding: 15px 20px;
+            }
+
+            .chapter-modal-title {
+                font-size: 1.2em;
+            }
+
+            .chapter-modal-content {
+                padding: 20px;
+            }
+
+            .chapter-modal-content .verse {
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">📖 Biblia Interactiva</div>
+            <div class="version-badge">RV1960</div>
+        </div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <div class="nav-bar">
+        <div class="nav-content">
+            <!-- Search Container -->
+            <div class="search-container">
+                <input
+                    type="text"
+                    id="searchInput"
+                    class="search-input"
+                    placeholder="🔍 Buscar en la Biblia..."
+                    autocomplete="off"
+                >
+                <span class="search-icon" id="searchIcon">🔍</span>
+                <button class="search-clear" id="searchClear">×</button>
+
+                <!-- Search Results Dropdown -->
+                <div class="search-results" id="searchResults"></div>
+            </div>
+
+            <div class="nav-group">
+                <select id="bookSelect" onchange="app.onBookChange()">
+                    <option value="">Selecciona un libro...</option>
+                </select>
+
+                <!-- Custom Book Dropdown -->
+                <div class="custom-book-select">
+                    <div class="custom-book-select-trigger" id="customBookTrigger">
+                        <span id="customBookLabel">Selecciona un libro...</span>
+                        <span class="custom-book-select-arrow">▼</span>
+                    </div>
+                </div>
+
+                <select id="chapterSelect" onchange="app.onChapterChange()" disabled>
+                    <option value="">Capítulo</option>
+                </select>
+            </div>
+
+            <div class="nav-group">
+                <button class="nav-button" id="prevChapterBtn" onclick="app.prevChapter()" disabled>
+                    ← Anterior
+                </button>
+                <button class="nav-button" id="nextChapterBtn" onclick="app.nextChapter()" disabled>
+                    Siguiente →
+                </button>
+            </div>
+
+            <div class="nav-group" style="margin-left: auto;">
+                <div class="font-size-controls">
+                    <span class="font-size-label">Tamaño:</span>
+                    <button class="font-size-btn active" onclick="app.setFontSize('xl')" data-size="xl">A+</button>
+                    <button class="font-size-btn" onclick="app.setFontSize('large')" data-size="large">A</button>
+                    <button class="font-size-btn" onclick="app.setFontSize('medium')" data-size="medium">A-</button>
+                    <button class="font-size-btn" onclick="app.setFontSize('small')" data-size="small">A--</button>
+                </div>
+
+                <button class="nav-button" id="toggleReferencesBtn" onclick="app.toggleReferencesVisibility()">
+                    <span id="refToggleIcon">👁️</span> Referencias
+                </button>
+
+                <button class="nav-button" id="toggleConcordanceBtn" onclick="app.toggleConcordanceMode()">
+                    <span id="concordanceToggleIcon">📖</span> Concordancias
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <div id="readerContent">
+            <div class="empty-state">
+                <div class="empty-state-icon">📖</div>
+                Selecciona un libro y capítulo para comenzar a leer la Palabra de Dios
+            </div>
+        </div>
+    </div>
+
+    <!-- Concordance Panel (Sidebar Left) -->
+    <div class="concordance-overlay" id="concordanceOverlay" onclick="app.closeConcordance()"></div>
+    <div class="concordance-panel" id="concordancePanel">
+        <div class="concordance-header">
+            <button class="close-concordance-btn" onclick="app.closeConcordance()">×</button>
+            <h3>📖 Concordancia Bíblica</h3>
+            <div class="concordance-word-title" id="concordanceWordTitle">—</div>
+            <div class="concordance-count" id="concordanceCount">Selecciona una palabra</div>
+        </div>
+        <div class="concordance-content" id="concordanceContent">
+            <div class="empty-state">
+                <div class="empty-state-icon">📖</div>
+                Activa las concordancias y haz clic en cualquier palabra del texto para ver todas sus apariciones en la Biblia
+            </div>
+        </div>
+    </div>
+
+    <!-- References Panel (Sidebar Right) -->
+    <div class="references-overlay" id="referencesOverlay" onclick="app.closeReferences()"></div>
+    <div class="references-panel" id="referencesPanel">
+        <div class="references-header">
+            <h3>Referencias Cruzadas</h3>
+            <button class="close-references-btn" onclick="app.closeReferences()">×</button>
+        </div>
+        <div class="references-content" id="referencesContent">
+            <div class="empty-state">
+                Haz clic en una referencia verde para ver su contenido aquí
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Navigation Arrows -->
+    <button class="float-nav float-nav-prev" id="floatPrevBtn" onclick="app.prevChapter()" title="Capítulo anterior">
+        ‹
+    </button>
+    <button class="float-nav float-nav-next" id="floatNextBtn" onclick="app.nextChapter()" title="Capítulo siguiente">
+        ›
+    </button>
+
+    <!-- Chapter Modal -->
+    <div class="chapter-modal-overlay" id="chapterModalOverlay" onclick="app.closeChapterModal()">
+        <div class="chapter-modal" onclick="event.stopPropagation()">
+            <div class="chapter-modal-header">
+                <div class="chapter-modal-title" id="chapterModalTitle">Capítulo</div>
+                <button class="chapter-modal-close" onclick="app.closeChapterModal()">×</button>
+            </div>
+            <div class="chapter-modal-content" id="chapterModalContent">
+                <div class="empty-state">Cargando...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Book Dropdown Overlay & Panel -->
+    <div class="custom-book-dropdown-overlay" id="customBookOverlay"></div>
+    <div class="custom-book-dropdown" id="customBookDropdown">
+        <!-- Vista de libros -->
+        <div id="booksView">
+            <div class="book-section-title">📜 Antiguo Testamento</div>
+            <div class="books-grid" id="oldTestamentBooks"></div>
+
+            <div class="book-section-title">✝️ Nuevo Testamento</div>
+            <div class="books-grid" id="newTestamentBooks"></div>
+        </div>
+
+        <!-- Vista de capítulos -->
+        <div id="chaptersView" style="display: none;">
+            <button class="back-to-books-btn" id="backToBooksBtn">← Volver a libros</button>
+            <div class="chapter-section-title" id="selectedBookTitle"></div>
+            <div class="chapters-grid" id="chaptersGrid"></div>
+        </div>
+    </div>
+
+    <script src="biblia-data.js"></script>
+    <script src="biblia-referencias.js"></script>
+    <script src="biblia-jesus-words.js"></script>
+    <script src="biblia-titulos.js"></script>
+    <script src="biblia-app.js"></script>
+</body>
+</html>
