@@ -1313,6 +1313,35 @@
            Añadido: 2025-11-14
            ============================================ */
 
+        /* Botón flotante para toggle nav en móvil */
+        .mobile-nav-toggle {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 1.5em;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            z-index: 90;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .mobile-nav-toggle:active {
+            transform: scale(0.95);
+        }
+
+        .mobile-nav-toggle.active {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+
         /* Breakpoint intermedio para móviles medianos */
         @media (max-width: 600px) and (min-width: 401px) {
             .books-grid {
@@ -1528,6 +1557,27 @@
             #toggleConcordanceBtn {
                 min-height: 44px;
             }
+
+            /* Mostrar botón toggle en móvil */
+            .mobile-nav-toggle {
+                display: flex;
+            }
+
+            /* Nav-bar colapsable en móvil */
+            .nav-bar {
+                transition: transform 0.3s ease, opacity 0.3s ease;
+            }
+
+            .nav-bar.collapsed {
+                transform: translateY(-100%);
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            /* Ajustar body cuando nav está colapsado */
+            body.nav-collapsed .nav-bar {
+                position: absolute;
+            }
         }
 
         /* Móviles con altura suficiente */
@@ -1671,6 +1721,11 @@
             </div>
         </div>
     </div>
+
+    <!-- Botón flotante para toggle nav en móvil -->
+    <button class="mobile-nav-toggle" id="mobileNavToggle" onclick="app.toggleMobileNav()">
+        <span id="navToggleIcon">☰</span>
+    </button>
 
     <!-- Concordance Panel (Sidebar Left) -->
     <div class="concordance-overlay" id="concordanceOverlay" onclick="app.closeConcordance()"></div>

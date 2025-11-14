@@ -15,6 +15,9 @@ class BibliaApp {
         this.concordanceCache = {};
         this.commonWords = this.buildCommonWordsList();
 
+        // Mobile nav state
+        this.mobileNavCollapsed = false;
+
         this.init();
     }
 
@@ -255,6 +258,13 @@ class BibliaApp {
         if (chapter) {
             this.currentChapter = chapter;
             this.loadChapter();
+
+            // Auto-colapsar nav en móvil después de seleccionar capítulo
+            if (window.innerWidth <= 768 && !this.mobileNavCollapsed) {
+                setTimeout(() => {
+                    this.collapseMobileNav();
+                }, 500);
+            }
         }
     }
 
@@ -1384,6 +1394,59 @@ class BibliaApp {
     closeConcordance() {
         document.getElementById('concordanceOverlay').classList.remove('active');
         document.getElementById('concordancePanel').classList.remove('active');
+    }
+
+    // === FUNCIONES PARA MÓVIL ===
+
+    // Toggle del nav en móvil
+    toggleMobileNav() {
+        if (this.mobileNavCollapsed) {
+            this.expandMobileNav();
+        } else {
+            this.collapseMobileNav();
+        }
+    }
+
+    // Colapsar nav en móvil
+    collapseMobileNav() {
+        const navBar = document.querySelector('.nav-bar');
+        const toggleBtn = document.getElementById('mobileNavToggle');
+        const toggleIcon = document.getElementById('navToggleIcon');
+
+        if (navBar) {
+            navBar.classList.add('collapsed');
+            document.body.classList.add('nav-collapsed');
+            this.mobileNavCollapsed = true;
+
+            if (toggleBtn) {
+                toggleBtn.classList.add('active');
+            }
+            if (toggleIcon) {
+                // Mostrar icono de menú cuando está colapsado
+                toggleIcon.textContent = '☰';
+            }
+        }
+    }
+
+    // Expandir nav en móvil
+    expandMobileNav() {
+        const navBar = document.querySelector('.nav-bar');
+        const toggleBtn = document.getElementById('mobileNavToggle');
+        const toggleIcon = document.getElementById('navToggleIcon');
+
+        if (navBar) {
+            navBar.classList.remove('collapsed');
+            document.body.classList.remove('nav-collapsed');
+            this.mobileNavCollapsed = false;
+
+            if (toggleBtn) {
+                toggleBtn.classList.remove('active');
+            }
+            if (toggleIcon) {
+                // Mostrar X cuando está expandido
+                toggleIcon.textContent = '×';
+            }
+        }
     }
 }
 
