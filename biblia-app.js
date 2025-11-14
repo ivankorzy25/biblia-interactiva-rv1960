@@ -210,6 +210,13 @@ class BibliaApp {
 
         // Cargar el capítulo seleccionado
         this.loadChapter();
+
+        // Auto-colapsar nav en móvil después de seleccionar capítulo
+        if (window.innerWidth <= 768 && !this.mobileNavCollapsed) {
+            setTimeout(() => {
+                this.collapseMobileNav();
+            }, 500);
+        }
     }
 
     // Cuando se selecciona un libro
