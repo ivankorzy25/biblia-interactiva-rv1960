@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Biblia Interactiva RV1960</title>
     <style>
         * {
@@ -1305,6 +1305,284 @@
 
             .chapter-modal-content .verse {
                 font-size: 1em;
+            }
+        }
+
+        /* ============================================
+           OPTIMIZACIONES PARA MÓVIL
+           Añadido: 2025-11-14
+           ============================================ */
+
+        /* Breakpoint intermedio para móviles medianos */
+        @media (max-width: 600px) and (min-width: 401px) {
+            .books-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .chapters-grid {
+                grid-template-columns: repeat(5, 1fr);
+            }
+        }
+
+        /* Móviles muy pequeños (<400px) - Mejoras críticas*/
+        @media (max-width: 400px) {
+            /* Grid de libros más espacioso */
+            .books-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+
+            .book-option {
+                padding: 10px 12px;
+                font-size: 0.85em;
+                white-space: normal;
+                min-height: 44px;
+            }
+
+            /* Grid de capítulos más espacioso */
+            .chapters-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+            }
+
+            .chapter-option {
+                padding: 12px;
+                font-size: 0.9em;
+                min-height: 44px;
+            }
+
+            /* Título más pequeño */
+            .chapter-title {
+                font-size: 1.4em;
+            }
+        }
+
+        /* Mejoras específicas para táctil - Críticas y Alta Prioridad */
+        @media (max-width: 768px) {
+            /* Header optimizado */
+            .header {
+                padding: 10px 15px;
+            }
+
+            .logo {
+                font-size: 1.2em;
+            }
+
+            .nav-bar {
+                padding: 12px 15px;
+            }
+
+            /* Referencias cruzadas LEGIBLES - CRÍTICO */
+            .cross-reference {
+                font-size: 0.75em;
+                padding: 2px 4px;
+                background: rgba(39, 174, 96, 0.1);
+                border-radius: 3px;
+                margin: 0 2px;
+                display: inline-block;
+                vertical-align: baseline;
+                min-height: 24px;
+                line-height: 1.5;
+            }
+
+            .ref-separator {
+                font-size: 0.7em;
+                padding: 0 3px;
+            }
+
+            /* Números de versículo más visibles */
+            .verse-number {
+                font-size: 0.75em;
+                margin-right: 5px;
+            }
+
+            /* Palabras de Jesús con mejor contraste */
+            .jesus-words {
+                color: #b71c3c;
+            }
+
+            /* Tamaño mínimo de fuente - CRÍTICO */
+            .font-size-small .verse {
+                --verse-font-size: 0.85em;
+            }
+
+            /* Line height optimizado */
+            .verse {
+                line-height: 1.75;
+            }
+
+            /* Botones de tamaño de fuente touch-friendly - CRÍTICO */
+            .font-size-btn {
+                padding: 12px 14px;
+                font-size: 0.85em;
+                min-width: 44px;
+                min-height: 44px;
+            }
+
+            .font-size-controls {
+                justify-content: center;
+                padding: 10px 0;
+                width: 100%;
+                gap: 10px;
+            }
+
+            .font-size-label {
+                font-size: 0.9em;
+                min-width: 70px;
+            }
+
+            /* Botones de navegación espaciados - ALTO */
+            .nav-group {
+                gap: 12px;
+            }
+
+            /* Versículos con padding adecuado */
+            .verses-container {
+                padding: 30px 20px;
+                margin-bottom: 60px;
+            }
+
+            /* Paneles laterales mejorados - CRÍTICO */
+            .concordance-panel {
+                width: 90%;
+                left: -90%;
+                max-width: 400px;
+                border-radius: 0 12px 12px 0;
+            }
+
+            .concordance-panel.active {
+                left: 0;
+                box-shadow: 8px 0 24px rgba(0,0,0,0.3);
+            }
+
+            .references-panel {
+                width: 90%;
+                right: -90%;
+                max-width: 400px;
+                border-radius: 12px 0 0 12px;
+            }
+
+            .references-panel.active {
+                right: 0;
+                box-shadow: -8px 0 24px rgba(0,0,0,0.3);
+            }
+
+            /* Botones de cerrar más grandes - CRÍTICO */
+            .close-concordance-btn,
+            .close-references-btn {
+                width: 44px;
+                height: 44px;
+                font-size: 2em;
+                top: 12px;
+                right: 12px;
+            }
+
+            /* Items de concordancia sin transform - MEDIO */
+            .concordance-item:hover {
+                transform: none;
+                background: #dde0e8;
+            }
+
+            /* Palabras de concordancia más visibles */
+            .concordance-word {
+                border-bottom: 2px dotted #667eea;
+                padding: 2px 0;
+            }
+
+            .concordance-word.active {
+                background: rgba(102, 126, 234, 0.25);
+                border-bottom: 2px solid #667eea;
+            }
+
+            /* Botones flotantes más grandes - ALTO */
+            .float-nav {
+                width: 48px;
+                height: 48px;
+                font-size: 1.4em;
+            }
+
+            /* Modal de capítulo optimizado - MEDIO */
+            .chapter-modal {
+                width: 92%;
+                max-height: 85vh;
+            }
+
+            .chapter-modal-close {
+                width: 48px;
+                height: 48px;
+                font-size: 2.2em;
+            }
+
+            /* Feedback táctil - MEDIO */
+            .nav-button:active,
+            .control-btn:active,
+            .font-size-btn:active,
+            .book-option:active,
+            .chapter-option:active {
+                transform: scale(0.95);
+                transition: transform 0.1s;
+            }
+
+            /* Botón active más visible */
+            #toggleReferencesBtn,
+            #toggleConcordanceBtn {
+                min-height: 44px;
+            }
+        }
+
+        /* Móviles con altura suficiente */
+        @media (max-width: 768px) and (min-height: 700px) {
+            .search-results {
+                max-height: 400px;
+            }
+        }
+
+        /* Safe area para iPhones con notch - CRÍTICO */
+        @supports (padding: env(safe-area-inset-top)) {
+            .nav-bar {
+                padding-top: max(12px, env(safe-area-inset-top));
+                padding-left: max(15px, env(safe-area-inset-left));
+                padding-right: max(15px, env(safe-area-inset-right));
+            }
+
+            .float-nav-prev {
+                left: max(20px, env(safe-area-inset-left));
+            }
+
+            .float-nav-next {
+                right: max(20px, env(safe-area-inset-right));
+            }
+
+            body {
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+        }
+
+        /* Overlays con blur - BAJO */
+        .chapter-modal-overlay.active,
+        .concordance-overlay.active,
+        .references-overlay.active,
+        .custom-book-dropdown-overlay.active {
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+        }
+
+        /* Accesibilidad - Focus visible - BAJO */
+        button:focus-visible,
+        select:focus-visible,
+        .custom-book-select-trigger:focus-visible,
+        .book-option:focus-visible,
+        .chapter-option:focus-visible {
+            outline: 3px solid #667eea;
+            outline-offset: 2px;
+        }
+
+        /* Reducir movimiento para usuarios sensibles - BAJO */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
             }
         }
     </style>
