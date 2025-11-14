@@ -1455,7 +1455,9 @@ let app;
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         app = new BibliaApp();
+        window.app = app; // Exponer globalmente para onclick handlers
     });
 } else {
     app = new BibliaApp();
+    window.app = app; // Exponer globalmente para onclick handlers
 }
