@@ -125,7 +125,7 @@ class BibliaApp {
         if (!book) return;
 
         this.currentBook = book;
-        this.currentBookData = typeof BIBLE_DATA !== 'undefined' ? BIBLE_DATA[bookId] : null;
+        this.currentBookData = bookId; // Store book ID, we'll access BIBLE_TEXT directly
 
         // Update button label
         document.getElementById('bookSelectorLabel').textContent = book.name;
@@ -223,16 +223,23 @@ class BibliaApp {
 
         this.currentChapter = chapterNum;
         const bookId = this.currentBook.id;
-        const chapterData = this.currentBookData[chapterNum];
+        const key = `${bookId}_${chapterNum}`;
+        const rawChapterData = (typeof BIBLE_TEXT !== 'undefined') ? BIBLE_TEXT[key] : null;
 
-        if (!chapterData) return;
+        if (!rawChapterData || !Array.isArray(rawChapterData)) return;
+
+        // Convert array format to {verseNum: text} object for rendering
+        const chapterData = {};
+        rawChapterData.forEach(v => {
+            chapterData[v.verse] = v.text;
+        });
 
         // Update UI
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('chapterContent').style.display = 'block';
         document.getElementById('mobileNav').style.display = '';
         document.getElementById('chapterTitle').textContent = `${this.currentBook.name} ${chapterNum}`;
-        document.getElementById('chapterSubtitle').textContent = `${Object.keys(chapterData).length} versículos`;
+        document.getElementById('chapterSubtitle').textContent = `${rawChapterData.length} versículos`;
         document.getElementById('chapterBtn').textContent = `Cap ${chapterNum}`;
 
         // Update chapter grid active state
@@ -503,13 +510,12 @@ class BibliaApp {
     }
 
     getVerseText(bookId, chapter, verse) {
-        if (this.currentBookData && this.currentBookData[chapter]) {
-            return this.currentBookData[chapter][verse] || '';
-        }
-        if (typeof BIBLE_DATA !== 'undefined' && BIBLE_DATA[bookId] && BIBLE_DATA[bookId][chapter]) {
-            return BIBLE_DATA[bookId][chapter][verse] || '';
-        }
-        return '';
+        if (typeof BIBLE_TEXT === 'undefined') return '';
+        const key = `${bookId}_${chapter}`;
+        const chapterData = BIBLE_TEXT[key];
+        if (!chapterData || !Array.isArray(chapterData)) return '';
+        const entry = chapterData.find(v => v.verse === verse);
+        return entry ? entry.text : '';
     }
 
     // ==========================================
@@ -732,24 +738,25 @@ class BibliaApp {
 
     searchWordInBible(word) {
         const results = [];
-        if (typeof BIBLE_DATA === 'undefined') return results;
+        if (typeof BIBLE_TEXT === 'undefined') return results;
 
         const regex = new RegExp(`\\b${word}\\b`, 'i');
 
         for (const book of BIBLE_BOOKS) {
-            const bookData = BIBLE_DATA[book.id];
-            if (!bookData) continue;
+            for (let ch = 1; ch <= book.chapters; ch++) {
+                const key = `${book.id}_${ch}`;
+                const verses = BIBLE_TEXT[key];
+                if (!verses || !Array.isArray(verses)) continue;
 
-            for (const [ch, verses] of Object.entries(bookData)) {
-                for (const [v, text] of Object.entries(verses)) {
-                    if (regex.test(text)) {
-                        // Extract context
+                for (const entry of verses) {
+                    if (regex.test(entry.text)) {
+                        const text = entry.text;
                         const idx = text.toLowerCase().indexOf(word);
                         const start = Math.max(0, idx - 30);
                         const end = Math.min(text.length, idx + word.length + 30);
                         let context = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
 
-                        results.push({ book: book.id, bookName: book.name, chapter: parseInt(ch), verse: parseInt(v), context });
+                        results.push({ book: book.id, bookName: book.name, chapter: ch, verse: entry.verse, context });
                     }
                 }
             }
@@ -808,19 +815,20 @@ class BibliaApp {
     buildSearchIndex() {
         // Build a lightweight index for faster searching
         this.searchIndex = [];
-        if (typeof BIBLE_DATA === 'undefined') return;
+        if (typeof BIBLE_TEXT === 'undefined') return;
 
         for (const book of BIBLE_BOOKS) {
-            const bookData = BIBLE_DATA[book.id];
-            if (!bookData) continue;
-            for (const [ch, verses] of Object.entries(bookData)) {
-                for (const [v, text] of Object.entries(verses)) {
+            for (let ch = 1; ch <= book.chapters; ch++) {
+                const key = `${book.id}_${ch}`;
+                const verses = BIBLE_TEXT[key];
+                if (!verses || !Array.isArray(verses)) continue;
+                for (const entry of verses) {
                     this.searchIndex.push({
                         book: book.id,
                         bookName: book.name,
-                        chapter: parseInt(ch),
-                        verse: parseInt(v),
-                        text: text.toLowerCase()
+                        chapter: ch,
+                        verse: entry.verse,
+                        text: entry.text.toLowerCase()
                     });
                 }
             }
