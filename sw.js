@@ -1,5 +1,5 @@
 // Service Worker - Biblia Interactiva RV1960
-const CACHE_NAME = 'biblia-rv1960-v2';
+const CACHE_NAME = 'biblia-rv1960-v3';
 const ASSETS = [
     './',
     './index.html',
