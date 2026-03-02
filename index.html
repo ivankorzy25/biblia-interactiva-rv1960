@@ -1,1808 +1,210 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Biblia Reina Valera 1960 interactiva con referencias cruzadas, concordancias, palabras de Jesús en rojo, notas personales y más.">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Biblia RV1960">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
     <title>Biblia Interactiva RV1960</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            line-height: 1.6;
-        }
-
-        /* Header */
-        .header {
-            background: white;
-            border-bottom: 1px solid #e0e0e0;
-            padding: 15px 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .header-content {
-            max-width: 900px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 1.4em;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-
-        .version-badge {
-            background: #667eea;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 15px;
-            font-size: 0.85em;
-            font-weight: 500;
-        }
-
-        /* Navigation Bar */
-        .nav-bar {
-            background: white;
-            padding: 20px;
-            border-bottom: 1px solid #e0e0e0;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .nav-content {
-            max-width: 900px;
-            margin: 0 auto;
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .nav-group {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            position: relative;
-        }
-
-        select {
-            padding: 10px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1em;
-            background: white;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: inherit;
-            position: relative;
-            z-index: 10;
-        }
-
-        select:hover {
-            border-color: #667eea;
-        }
-
-        select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-            z-index: 150;
-        }
-
-        #bookSelect {
-            display: none; /* Ocultar select nativo */
-        }
-
-        /* Custom Book Dropdown */
-        .custom-book-select {
-            position: relative;
-            min-width: 200px;
-        }
-
-        .custom-book-select-trigger {
-            padding: 10px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1em;
-            background: white;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: inherit;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            user-select: none;
-        }
-
-        .custom-book-select-trigger:hover {
-            border-color: #667eea;
-        }
-
-        .custom-book-select-trigger.active {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .custom-book-select-arrow {
-            margin-left: 10px;
-            font-size: 0.8em;
-            transition: transform 0.2s;
-        }
-
-        .custom-book-select-trigger.active .custom-book-select-arrow {
-            transform: rotate(180deg);
-        }
-
-        .custom-book-dropdown {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 10000;
-            background: white;
-            border: 2px solid #667eea;
-            border-radius: 12px;
-            box-shadow: 0 12px 48px rgba(0,0,0,0.2);
-            padding: 30px 40px;
-            width: 90vw;
-            max-width: 1400px;
-            max-height: 90vh;
-        }
-
-        .custom-book-dropdown.active {
-            display: block;
-        }
-
-        .custom-book-dropdown-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.4);
-            z-index: 9999;
-        }
-
-        .custom-book-dropdown-overlay.active {
-            display: block;
-        }
-
-        .book-section-title {
-            font-weight: 700;
-            font-size: 1em;
-            color: #667eea;
-            margin-bottom: 12px;
-            margin-top: 8px;
-            padding-bottom: 6px;
-            border-bottom: 2px solid #667eea;
-        }
-
-        .book-section-title:first-child {
-            margin-top: 0;
-        }
-
-        .books-grid {
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 6px;
-            margin-bottom: 15px;
-        }
-
-        .book-option {
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.85em;
-            background: #f8f9fa;
-            border: 2px solid transparent;
-            text-align: center;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .book-option:hover {
-            background: rgba(102, 126, 234, 0.1);
-            border-color: #667eea;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        .book-option.new-testament {
-            background-color: rgba(220, 53, 69, 0.08);
-        }
-
-        .book-option.new-testament:hover {
-            background-color: rgba(220, 53, 69, 0.15);
-            border-color: #dc3545;
-        }
-
-        /* Back button */
-        .back-to-books-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9em;
-            font-weight: 600;
-            margin-bottom: 20px;
-            transition: all 0.2s;
-        }
-
-        .back-to-books-btn:hover {
-            background: #5568d3;
-            transform: translateX(-3px);
-        }
-
-        /* Chapter selection */
-        .chapter-section-title {
-            font-weight: 700;
-            font-size: 1.2em;
-            color: #667eea;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .chapters-grid {
-            display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            gap: 8px;
-            margin-top: 15px;
-        }
-
-        .chapter-option {
-            padding: 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.95em;
-            font-weight: 600;
-            background: #f8f9fa;
-            border: 2px solid transparent;
-            text-align: center;
-            color: #333;
-        }
-
-        .chapter-option:hover {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-            transform: scale(1.05);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        @media (max-width: 1200px) {
-            .books-grid {
-                grid-template-columns: repeat(6, 1fr);
-            }
-
-            .chapters-grid {
-                grid-template-columns: repeat(8, 1fr);
-            }
-        }
-
-        @media (max-width: 900px) {
-            .books-grid {
-                grid-template-columns: repeat(4, 1fr);
-            }
-
-            .chapters-grid {
-                grid-template-columns: repeat(6, 1fr);
-            }
-
-            .custom-book-dropdown {
-                padding: 20px 25px;
-                width: 95vw;
-                max-height: 85vh;
-                overflow-y: auto;
-            }
-        }
-
-        @media (max-width: 600px) {
-            .books-grid {
-                grid-template-columns: repeat(3, 1fr);
-                gap: 5px;
-            }
-
-            .chapters-grid {
-                grid-template-columns: repeat(5, 1fr);
-                gap: 6px;
-            }
-
-            .book-option {
-                padding: 6px 8px;
-                font-size: 0.75em;
-            }
-
-            .chapter-option {
-                padding: 10px;
-                font-size: 0.85em;
-            }
-
-            .custom-book-dropdown {
-                padding: 15px;
-            }
-        }
-
-        #chapterSelect {
-            min-width: 120px;
-        }
-
-        .nav-button {
-            padding: 10px 20px;
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.95em;
-            transition: all 0.2s;
-            font-weight: 500;
-            color: #555;
-        }
-
-        .nav-button:hover {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        .nav-button:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-        .nav-button:disabled:hover {
-            background: white;
-            color: #555;
-            border-color: #e0e0e0;
-        }
-
-        /* Search Box */
-        .search-container {
-            position: relative;
-            flex: 1;
-            max-width: 400px;
-            min-width: 250px;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 10px 40px 10px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 0.95em;
-            font-family: inherit;
-            transition: all 0.2s;
-        }
-
-        .search-input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .search-input::placeholder {
-            color: #999;
-        }
-
-        .search-icon {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #999;
-            font-size: 1.2em;
-            pointer-events: none;
-        }
-
-        .search-clear {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: #e0e0e0;
-            border: none;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            font-size: 0.7em;
-            cursor: pointer;
-            color: #666;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .search-clear.active {
-            display: flex;
-        }
-
-        .search-clear:hover {
-            background: #d0d0d0;
-            color: #333;
-        }
-
-        /* Search Results Dropdown */
-        .search-results {
-            position: absolute;
-            top: calc(100% + 5px);
-            left: 0;
-            right: 0;
-            background: white;
-            border: 2px solid #667eea;
-            border-radius: 8px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-            max-height: 500px;
-            overflow-y: auto;
-            z-index: 1000;
-            display: none;
-        }
-
-        .search-results.active {
-            display: block;
-        }
-
-        .search-results-header {
-            padding: 12px 15px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e0e0e0;
-            font-size: 0.85em;
-            color: #666;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 1;
-        }
-
-        .search-result-item {
-            padding: 12px 15px;
-            border-bottom: 1px solid #f0f0f0;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .search-result-item:last-child {
-            border-bottom: none;
-        }
-
-        .search-result-item:hover {
-            background: rgba(102, 126, 234, 0.08);
-        }
-
-        .search-result-title {
-            font-weight: 600;
-            color: #667eea;
-            font-size: 0.95em;
-            margin-bottom: 4px;
-        }
-
-        .search-result-reference {
-            font-size: 0.85em;
-            color: #999;
-            margin-bottom: 4px;
-        }
-
-        .search-result-text {
-            font-size: 0.9em;
-            color: #555;
-            line-height: 1.5;
-        }
-
-        .search-result-highlight {
-            background: #fff9c4;
-            font-weight: 600;
-            padding: 0 2px;
-            border-radius: 2px;
-        }
-
-        .search-no-results {
-            padding: 40px 15px;
-            text-align: center;
-            color: #999;
-        }
-
-        .search-no-results-icon {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            opacity: 0.3;
-        }
-
-        .search-loading {
-            padding: 20px;
-            text-align: center;
-            color: #667eea;
-            font-size: 0.9em;
-        }
-
-        /* Font Size Controls */
-        .font-size-controls {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .font-size-label {
-            font-size: 0.9em;
-            color: #777;
-            font-weight: 500;
-        }
-
-        .font-size-btn {
-            padding: 8px 12px;
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85em;
-            transition: all 0.2s;
-            font-weight: 600;
-            color: #555;
-            min-width: 38px;
-        }
-
-        .font-size-btn:hover {
-            border-color: #667eea;
-            color: #667eea;
-        }
-
-        .font-size-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        /* Main Content Area */
-        .main-container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-
-        .chapter-header {
-            margin-bottom: 30px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .chapter-title {
-            font-size: 2em;
-            font-weight: 600;
-            color: #2c3e50;
-            margin-bottom: 5px;
-        }
-
-        .chapter-subtitle {
-            color: #777;
-            font-size: 0.95em;
-        }
-
-        /* Reader Controls */
-        .reader-controls {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-        }
-
-        .control-btn {
-            padding: 8px 16px;
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9em;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .control-btn:hover {
-            border-color: #667eea;
-            color: #667eea;
-        }
-
-        .control-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        /* Verses */
-        .verses-container {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            margin-bottom: 40px;
-        }
-
-        .verse {
-            display: inline;
-            line-height: 1.9;
-            font-size: var(--verse-font-size, 1.1em);
-            color: #333;
-        }
-
-        .verse::after {
-            content: " ";
-        }
-
-        /* Font Size Classes */
-        .font-size-xl .verse,
-        .font-size-xl .chapter-modal-content .verse {
-            --verse-font-size: 1.1em;
-        }
-
-        .font-size-large .verse,
-        .font-size-large .chapter-modal-content .verse {
-            --verse-font-size: 1.0em;
-        }
-
-        .font-size-medium .verse,
-        .font-size-medium .chapter-modal-content .verse {
-            --verse-font-size: 0.9em;
-        }
-
-        .font-size-small .verse,
-        .font-size-small .chapter-modal-content .verse {
-            --verse-font-size: 0.8em;
-        }
-
-        .verse-number {
-            font-weight: 600;
-            color: #999;
-            margin-right: 4px;
-            font-size: 0.7em;
-            vertical-align: super;
-            user-select: none;
-            line-height: 0;
-        }
-
-        /* Section Titles */
-        .section-title {
-            font-weight: 700;
-            color: #667eea;
-            margin-top: 30px;
-            margin-bottom: 15px;
-            font-size: 1.05em;
-            display: block;
-            clear: both;
-        }
-
-        .section-title:first-child {
-            margin-top: 0;
-        }
-
-        .jesus-words {
-            color: #c41e3a;
-            font-weight: 600;
-        }
-
-        /* Concordance Words */
-        .concordance-word {
-            cursor: pointer;
-            border-bottom: 1px dotted #667eea;
-            transition: all 0.2s;
-            position: relative;
-        }
-
-        .concordance-word:hover {
-            background: rgba(102, 126, 234, 0.1);
-            border-bottom: 2px solid #667eea;
-        }
-
-        .concordance-word.active {
-            background: rgba(102, 126, 234, 0.2);
-            border-bottom: 2px solid #667eea;
-        }
-
-        .cross-reference {
-            color: #27ae60;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 0.6em;
-            vertical-align: super;
-            padding: 0 1px;
-            transition: opacity 0.3s ease, color 0.2s ease;
-            font-weight: 500;
-        }
-
-        .cross-reference:hover {
-            color: #229954;
-            text-decoration: underline;
-        }
-
-        .ref-separator {
-            color: #999;
-            font-size: 0.6em;
-            vertical-align: super;
-            padding: 0 2px;
-            user-select: none;
-        }
-
-        /* Concordance Panel (Sidebar) */
-        .concordance-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            width: 100%;
-            background: rgba(0,0,0,0.4);
-            z-index: 250;
-            display: none;
-            animation: fadeIn 0.2s;
-        }
-
-        .concordance-overlay.active {
-            display: block;
-        }
-
-        .concordance-panel {
-            position: fixed;
-            top: 0;
-            left: -450px;
-            bottom: 0;
-            width: 450px;
-            background: white;
-            box-shadow: 4px 0 12px rgba(0,0,0,0.15);
-            z-index: 251;
-            transition: left 0.3s ease;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .concordance-panel.active {
-            left: 0;
-        }
-
-        .concordance-header {
-            padding: 20px;
-            border-bottom: 2px solid #e0e0e0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .concordance-header h3 {
-            font-size: 1.3em;
-            margin-bottom: 5px;
-        }
-
-        .concordance-word-title {
-            font-size: 1.8em;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .concordance-count {
-            font-size: 0.9em;
-            opacity: 0.9;
-        }
-
-        .close-concordance-btn {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            font-size: 1.8em;
-            cursor: pointer;
-            color: white;
-            padding: 0;
-            width: 35px;
-            height: 35px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.2s;
-            position: absolute;
-            right: 15px;
-            top: 15px;
-        }
-
-        .close-concordance-btn:hover {
-            background: rgba(255,255,255,0.3);
-        }
-
-        .concordance-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-        }
-
-        .concordance-item {
-            background: #f8f9fa;
-            padding: 15px;
-            margin-bottom: 12px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .concordance-item:hover {
-            background: #e9ecef;
-            transform: translateX(5px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .concordance-reference {
-            font-weight: 700;
-            color: #667eea;
-            margin-bottom: 8px;
-            font-size: 0.95em;
-        }
-
-        .concordance-text {
-            color: #555;
-            line-height: 1.7;
-            font-size: 0.95em;
-        }
-
-        .concordance-highlight {
-            background: #fff9c4;
-            font-weight: 600;
-            padding: 2px 4px;
-            border-radius: 3px;
-        }
-
-        .concordance-loading {
-            text-align: center;
-            padding: 60px 20px;
-            color: #667eea;
-        }
-
-        .concordance-loading-icon {
-            font-size: 3em;
-            margin-bottom: 15px;
-            animation: spin 2s linear infinite;
-        }
-
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        /* References Panel (Sidebar) */
-        .references-overlay {
-            position: fixed;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            width: 100%;
-            background: rgba(0,0,0,0.4);
-            z-index: 200;
-            display: none;
-            animation: fadeIn 0.2s;
-        }
-
-        .references-overlay.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .references-panel {
-            position: fixed;
-            top: 0;
-            right: -400px;
-            bottom: 0;
-            width: 400px;
-            background: white;
-            box-shadow: -4px 0 12px rgba(0,0,0,0.15);
-            z-index: 201;
-            transition: right 0.3s ease;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .references-panel.active {
-            right: 0;
-        }
-
-        .references-header {
-            padding: 20px;
-            border-bottom: 2px solid #e0e0e0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #f8f9fa;
-        }
-
-        .references-header h3 {
-            font-size: 1.3em;
-            color: #2c3e50;
-        }
-
-        .close-references-btn {
-            background: transparent;
-            border: none;
-            font-size: 1.8em;
-            cursor: pointer;
-            color: #777;
-            padding: 0;
-            width: 35px;
-            height: 35px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.2s;
-        }
-
-        .close-references-btn:hover {
-            background: #e0e0e0;
-            color: #333;
-        }
-
-        .references-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-        }
-
-        .reference-item {
-            background: #f8f9fa;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-
-        .reference-title {
-            font-weight: 700;
-            color: #667eea;
-            margin-bottom: 8px;
-            font-size: 0.95em;
-        }
-
-        .reference-text {
-            color: #555;
-            line-height: 1.7;
-            font-size: 0.95em;
-        }
-
-        .reference-nav-btn {
-            display: inline-block;
-            margin-top: 8px;
-            padding: 10px 18px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 0.9em;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: 500;
-            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
-        }
-
-        .reference-nav-btn:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-
-        .reference-nav-btn:active {
-            transform: translateY(0);
-        }
-
-        /* Verse Highlight Effect */
-        .verse.highlight {
-            background: #fff9c4;
-            padding: 3px 6px;
-            border-radius: 4px;
-            box-shadow: 0 0 0 3px #fff9c4;
-            animation: highlightPulse 5s ease-out;
-        }
-
-        @keyframes highlightPulse {
-            0% {
-                background: #ffeb3b;
-                box-shadow: 0 0 0 3px #ffeb3b;
-            }
-            20% {
-                background: #fff9c4;
-                box-shadow: 0 0 0 3px #fff9c4;
-            }
-            100% {
-                background: #fff9c4;
-                box-shadow: 0 0 0 3px #fff9c4;
-            }
-        }
-
-        /* Chapter Modal */
-        .chapter-modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 300;
-            display: none;
-            animation: fadeIn 0.3s;
-        }
-
-        .chapter-modal-overlay.active {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .chapter-modal {
-            background: white;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 800px;
-            max-height: 85vh;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-            animation: slideUp 0.3s ease-out;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .chapter-modal-header {
-            padding: 20px 25px;
-            border-bottom: 2px solid #e0e0e0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #f8f9fa;
-            border-radius: 12px 12px 0 0;
-        }
-
-        .chapter-modal-title {
-            font-size: 1.5em;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-
-        .chapter-modal-close {
-            background: transparent;
-            border: none;
-            font-size: 2em;
-            cursor: pointer;
-            color: #777;
-            padding: 0;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.2s;
-        }
-
-        .chapter-modal-close:hover {
-            background: #e0e0e0;
-            color: #333;
-        }
-
-        .chapter-modal-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 30px;
-            line-height: 1.9;
-        }
-
-        .chapter-modal-content .verse {
-            display: inline;
-            font-size: 1.05em;
-        }
-
-        .chapter-modal-content .verse::after {
-            content: " ";
-        }
-
-        .chapter-modal-content .verse.highlight::before {
-            content: '📍 ';
-            font-size: 1em;
-        }
-
-        /* Empty States */
-        .empty-state {
-            text-align: center;
-            color: #999;
-            padding: 60px 20px;
-            font-size: 1.1em;
-        }
-
-        .empty-state-icon {
-            font-size: 3em;
-            margin-bottom: 15px;
-            opacity: 0.3;
-        }
-
-        /* Floating Navigation Arrows */
-        .float-nav {
-            position: fixed;
-            top: 50%;
-            transform: translateY(-50%);
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 1.5em;
-            color: #667eea;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
-            z-index: 50;
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .float-nav.active {
-            opacity: 1;
-            pointer-events: all;
-        }
-
-        .float-nav:hover {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-            transform: translateY(-50%) scale(1.1);
-        }
-
-        .float-nav:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-
-        .float-nav-prev {
-            left: 20px;
-        }
-
-        .float-nav-next {
-            right: 20px;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .nav-content {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .nav-group {
-                flex-direction: column;
-                width: 100%;
-            }
-
-            .nav-group[style*="margin-left"] {
-                margin-left: 0 !important;
-            }
-
-            select, .nav-button {
-                width: 100%;
-            }
-
-            .search-container {
-                max-width: none;
-                min-width: 100%;
-                margin-bottom: 10px;
-            }
-
-            .search-results {
-                max-height: 300px;
-            }
-
-            .font-size-controls {
-                justify-content: center;
-                padding: 8px 0;
-            }
-
-            .font-size-label {
-                font-size: 0.85em;
-            }
-
-            .font-size-btn {
-                padding: 8px 10px;
-                font-size: 0.8em;
-                min-width: 35px;
-            }
-
-            .verses-container {
-                padding: 25px 20px;
-            }
-
-            /* Override font sizes for mobile */
-            .font-size-xl .verse {
-                --verse-font-size: 1.05em;
-            }
-
-            .font-size-large .verse {
-                --verse-font-size: 0.95em;
-            }
-
-            .font-size-medium .verse {
-                --verse-font-size: 0.85em;
-            }
-
-            .font-size-small .verse {
-                --verse-font-size: 0.75em;
-            }
-
-            .references-panel {
-                width: 100%;
-                right: -100%;
-            }
-
-            .concordance-panel {
-                width: 100%;
-                left: -100%;
-            }
-
-            .chapter-title {
-                font-size: 1.6em;
-            }
-
-            .float-nav {
-                width: 40px;
-                height: 40px;
-                font-size: 1.2em;
-            }
-
-            .float-nav-prev {
-                left: 10px;
-            }
-
-            .float-nav-next {
-                right: 10px;
-            }
-
-            .chapter-modal {
-                width: 95%;
-                max-height: 90vh;
-            }
-
-            .chapter-modal-header {
-                padding: 15px 20px;
-            }
-
-            .chapter-modal-title {
-                font-size: 1.2em;
-            }
-
-            .chapter-modal-content {
-                padding: 20px;
-            }
-
-            .chapter-modal-content .verse {
-                font-size: 1em;
-            }
-        }
-
-        /* ============================================
-           OPTIMIZACIONES PARA MÓVIL
-           Añadido: 2025-11-14
-           ============================================ */
-
-        /* Botón flotante para toggle nav en móvil */
-        .mobile-nav-toggle {
-            position: fixed;
-            bottom: 80px;
-            right: 20px;
-            width: 56px;
-            height: 56px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            font-size: 1.5em;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-            z-index: 90;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-        }
-
-        .mobile-nav-toggle:active {
-            transform: scale(0.95);
-        }
-
-        .mobile-nav-toggle.active {
-            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-        }
-
-        /* Breakpoint intermedio para móviles medianos */
-        @media (max-width: 600px) and (min-width: 401px) {
-            .books-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-
-            .chapters-grid {
-                grid-template-columns: repeat(5, 1fr);
-            }
-        }
-
-        /* Móviles muy pequeños (<400px) - Mejoras críticas*/
-        @media (max-width: 400px) {
-            /* Grid de libros más espacioso */
-            .books-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 8px;
-            }
-
-            .book-option {
-                padding: 10px 12px;
-                font-size: 0.85em;
-                white-space: normal;
-                min-height: 44px;
-            }
-
-            /* Grid de capítulos más espacioso */
-            .chapters-grid {
-                grid-template-columns: repeat(4, 1fr);
-                gap: 8px;
-            }
-
-            .chapter-option {
-                padding: 12px;
-                font-size: 0.9em;
-                min-height: 44px;
-            }
-
-            /* Título más pequeño */
-            .chapter-title {
-                font-size: 1.4em;
-            }
-        }
-
-        /* Mejoras específicas para táctil - Críticas y Alta Prioridad */
-        @media (max-width: 768px) {
-            /* Header optimizado */
-            .header {
-                padding: 10px 15px;
-            }
-
-            .logo {
-                font-size: 1.2em;
-            }
-
-            .nav-bar {
-                padding: 12px 15px;
-            }
-
-            /* Referencias cruzadas LEGIBLES - CRÍTICO */
-            .cross-reference {
-                font-size: 0.75em;
-                padding: 2px 4px;
-                background: rgba(39, 174, 96, 0.1);
-                border-radius: 3px;
-                margin: 0 2px;
-                display: inline-block;
-                vertical-align: baseline;
-                min-height: 24px;
-                line-height: 1.5;
-            }
-
-            .ref-separator {
-                font-size: 0.7em;
-                padding: 0 3px;
-            }
-
-            /* Números de versículo más visibles */
-            .verse-number {
-                font-size: 0.75em;
-                margin-right: 5px;
-            }
-
-            /* Palabras de Jesús con mejor contraste */
-            .jesus-words {
-                color: #b71c3c;
-            }
-
-            /* Tamaño mínimo de fuente - CRÍTICO */
-            .font-size-small .verse {
-                --verse-font-size: 0.85em;
-            }
-
-            /* Line height optimizado */
-            .verse {
-                line-height: 1.75;
-            }
-
-            /* Botones de tamaño de fuente touch-friendly - CRÍTICO */
-            .font-size-btn {
-                padding: 12px 14px;
-                font-size: 0.85em;
-                min-width: 44px;
-                min-height: 44px;
-            }
-
-            .font-size-controls {
-                justify-content: center;
-                padding: 10px 0;
-                width: 100%;
-                gap: 10px;
-            }
-
-            .font-size-label {
-                font-size: 0.9em;
-                min-width: 70px;
-            }
-
-            /* Botones de navegación espaciados - ALTO */
-            .nav-group {
-                gap: 12px;
-            }
-
-            /* Versículos con padding adecuado */
-            .verses-container {
-                padding: 30px 20px;
-                margin-bottom: 60px;
-            }
-
-            /* Paneles laterales mejorados - CRÍTICO */
-            .concordance-panel {
-                width: 90%;
-                left: -90%;
-                max-width: 400px;
-                border-radius: 0 12px 12px 0;
-            }
-
-            .concordance-panel.active {
-                left: 0;
-                box-shadow: 8px 0 24px rgba(0,0,0,0.3);
-            }
-
-            .references-panel {
-                width: 90%;
-                right: -90%;
-                max-width: 400px;
-                border-radius: 12px 0 0 12px;
-            }
-
-            .references-panel.active {
-                right: 0;
-                box-shadow: -8px 0 24px rgba(0,0,0,0.3);
-            }
-
-            /* Botones de cerrar más grandes - CRÍTICO */
-            .close-concordance-btn,
-            .close-references-btn {
-                width: 44px;
-                height: 44px;
-                font-size: 2em;
-                top: 12px;
-                right: 12px;
-            }
-
-            /* Items de concordancia sin transform - MEDIO */
-            .concordance-item:hover {
-                transform: none;
-                background: #dde0e8;
-            }
-
-            /* Palabras de concordancia más visibles */
-            .concordance-word {
-                border-bottom: 2px dotted #667eea;
-                padding: 2px 0;
-            }
-
-            .concordance-word.active {
-                background: rgba(102, 126, 234, 0.25);
-                border-bottom: 2px solid #667eea;
-            }
-
-            /* Botones flotantes más grandes - ALTO */
-            .float-nav {
-                width: 48px;
-                height: 48px;
-                font-size: 1.4em;
-            }
-
-            /* Modal de capítulo optimizado - MEDIO */
-            .chapter-modal {
-                width: 92%;
-                max-height: 85vh;
-            }
-
-            .chapter-modal-close {
-                width: 48px;
-                height: 48px;
-                font-size: 2.2em;
-            }
-
-            /* Feedback táctil - MEDIO */
-            .nav-button:active,
-            .control-btn:active,
-            .font-size-btn:active,
-            .book-option:active,
-            .chapter-option:active {
-                transform: scale(0.95);
-                transition: transform 0.1s;
-            }
-
-            /* Botón active más visible */
-            #toggleReferencesBtn,
-            #toggleConcordanceBtn {
-                min-height: 44px;
-            }
-
-            /* Mostrar botón toggle en móvil */
-            .mobile-nav-toggle {
-                display: flex;
-            }
-
-            /* Nav-bar colapsable en móvil */
-            .nav-bar {
-                transition: transform 0.3s ease, opacity 0.3s ease;
-            }
-
-            .nav-bar.collapsed {
-                transform: translateY(-100%);
-                opacity: 0;
-                pointer-events: none;
-            }
-
-            /* Ajustar body cuando nav está colapsado */
-            body.nav-collapsed .nav-bar {
-                position: absolute;
-            }
-        }
-
-        /* Móviles con altura suficiente */
-        @media (max-width: 768px) and (min-height: 700px) {
-            .search-results {
-                max-height: 400px;
-            }
-        }
-
-        /* Safe area para iPhones con notch - CRÍTICO */
-        @supports (padding: env(safe-area-inset-top)) {
-            .nav-bar {
-                padding-top: max(12px, env(safe-area-inset-top));
-                padding-left: max(15px, env(safe-area-inset-left));
-                padding-right: max(15px, env(safe-area-inset-right));
-            }
-
-            .float-nav-prev {
-                left: max(20px, env(safe-area-inset-left));
-            }
-
-            .float-nav-next {
-                right: max(20px, env(safe-area-inset-right));
-            }
-
-            body {
-                padding-bottom: env(safe-area-inset-bottom);
-            }
-        }
-
-        /* Overlays con blur - BAJO */
-        .chapter-modal-overlay.active,
-        .concordance-overlay.active,
-        .references-overlay.active,
-        .custom-book-dropdown-overlay.active {
-            backdrop-filter: blur(3px);
-            -webkit-backdrop-filter: blur(3px);
-        }
-
-        /* Accesibilidad - Focus visible - BAJO */
-        button:focus-visible,
-        select:focus-visible,
-        .custom-book-select-trigger:focus-visible,
-        .book-option:focus-visible,
-        .chapter-option:focus-visible {
-            outline: 3px solid #667eea;
-            outline-offset: 2px;
-        }
-
-        /* Reducir movimiento para usuarios sensibles - BAJO */
-        @media (prefers-reduced-motion: reduce) {
-            * {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
-    </style>
 </head>
-<body>
+<body class="font-xl">
+
     <!-- Header -->
-    <div class="header">
+    <header class="header">
         <div class="header-content">
-            <div class="logo">📖 Biblia Interactiva</div>
-            <div class="version-badge">RV1960</div>
+            <div class="logo">&#128214; Biblia Interactiva</div>
+            <div class="header-right">
+                <span class="version-badge">RV1960</span>
+                <button class="theme-toggle" id="themeToggle" title="Cambiar tema">&#9790;</button>
+            </div>
         </div>
+    </header>
+
+    <!-- Verse of the Day -->
+    <div class="verse-of-day" id="verseOfDay">
+        <div class="verse-of-day-label">Vers&iacute;culo del D&iacute;a</div>
+        <div class="verse-of-day-text" id="votdText"></div>
+        <div class="verse-of-day-ref" id="votdRef"></div>
+        <button class="share-votd" id="shareVotd" title="Compartir">&#9993;</button>
     </div>
 
-    <!-- Navigation Bar -->
-    <div class="nav-bar">
+    <!-- Reading Progress -->
+    <div class="reading-progress-bar">
+        <div class="reading-progress-fill" id="readingProgress"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="nav-bar">
         <div class="nav-content">
-            <!-- Search Container -->
-            <div class="search-container">
-                <input
-                    type="text"
-                    id="searchInput"
-                    class="search-input"
-                    placeholder="🔍 Buscar en la Biblia..."
-                    autocomplete="off"
-                >
-                <span class="search-icon" id="searchIcon">🔍</span>
-                <button class="search-clear" id="searchClear">×</button>
+            <div class="nav-row">
+                <!-- Book selector -->
+                <div class="book-selector-wrapper">
+                    <button class="book-selector-btn" id="bookSelectorBtn">
+                        <span id="bookSelectorLabel">Seleccionar Libro</span>
+                        <span class="arrow">&#9660;</span>
+                    </button>
+                    <div class="book-dropdown" id="bookDropdown"></div>
+                </div>
 
-                <!-- Search Results Dropdown -->
-                <div class="search-results" id="searchResults"></div>
-            </div>
-
-            <div class="nav-group">
-                <select id="bookSelect" onchange="app.onBookChange()">
-                    <option value="">Selecciona un libro...</option>
-                </select>
-
-                <!-- Custom Book Dropdown -->
-                <div class="custom-book-select">
-                    <div class="custom-book-select-trigger" id="customBookTrigger">
-                        <span id="customBookLabel">Selecciona un libro...</span>
-                        <span class="custom-book-select-arrow">▼</span>
+                <!-- Chapter navigation -->
+                <div class="chapter-nav">
+                    <button class="nav-btn" id="prevChapter" title="Cap&iacute;tulo anterior">&#9664;</button>
+                    <div class="chapter-grid-wrapper">
+                        <button class="chapter-btn" id="chapterBtn">Cap</button>
+                        <div class="chapter-dropdown" id="chapterDropdown"></div>
                     </div>
+                    <button class="nav-btn" id="nextChapter" title="Cap&iacute;tulo siguiente">&#9654;</button>
                 </div>
 
-                <select id="chapterSelect" onchange="app.onChapterChange()" disabled>
-                    <option value="">Capítulo</option>
-                </select>
-            </div>
-
-            <div class="nav-group">
-                <button class="nav-button" id="prevChapterBtn" onclick="app.prevChapter()" disabled>
-                    ← Anterior
-                </button>
-                <button class="nav-button" id="nextChapterBtn" onclick="app.nextChapter()" disabled>
-                    Siguiente →
-                </button>
-            </div>
-
-            <div class="nav-group" style="margin-left: auto;">
-                <div class="font-size-controls">
-                    <span class="font-size-label">Tamaño:</span>
-                    <button class="font-size-btn active" onclick="app.setFontSize('xl')" data-size="xl">A+</button>
-                    <button class="font-size-btn" onclick="app.setFontSize('large')" data-size="large">A</button>
-                    <button class="font-size-btn" onclick="app.setFontSize('medium')" data-size="medium">A-</button>
-                    <button class="font-size-btn" onclick="app.setFontSize('small')" data-size="small">A--</button>
+                <!-- Search -->
+                <div class="search-wrapper">
+                    <span class="search-icon">&#128269;</span>
+                    <input type="search" class="search-input" id="searchInput" placeholder="Buscar vers&iacute;culo...">
+                    <div class="search-results" id="searchResults"></div>
                 </div>
+            </div>
 
-                <button class="nav-button" id="toggleReferencesBtn" onclick="app.toggleReferencesVisibility()">
-                    <span id="refToggleIcon">👁️</span> Referencias
-                </button>
+            <!-- Toolbar -->
+            <div class="toolbar-row">
+                <button class="toolbar-btn" id="toggleRefs" title="Referencias cruzadas">&#128279; Refs</button>
+                <button class="toolbar-btn" id="toggleConcordance" title="Concordancias">&#128218; Conc</button>
+                <button class="toolbar-btn" id="toggleFavorites" title="Favoritos">&#9829; Favs</button>
+                <button class="toolbar-btn" id="toggleNotes" title="Notas y destacados">&#9998; Notas</button>
+                <button class="toolbar-btn" id="toggleHistory" title="Historial">&#128340; Historial</button>
 
-                <button class="nav-button" id="toggleConcordanceBtn" onclick="app.toggleConcordanceMode()">
-                    <span id="concordanceToggleIcon">📖</span> Concordancias
-                </button>
+                <div class="font-controls">
+                    <button class="font-btn" data-size="sm" title="Peque&ntilde;o">A</button>
+                    <button class="font-btn" data-size="md" title="Mediano">A</button>
+                    <button class="font-btn active" data-size="lg" title="Grande">A</button>
+                    <button class="font-btn" data-size="xl" title="Extra grande">A</button>
+                </div>
             </div>
         </div>
-    </div>
+    </nav>
 
     <!-- Main Content -->
-    <div class="main-container">
-        <div id="readerContent">
-            <div class="empty-state">
-                <div class="empty-state-icon">📖</div>
-                Selecciona un libro y capítulo para comenzar a leer la Palabra de Dios
+    <main class="main-content">
+        <div class="reading-area" id="readingArea">
+            <!-- Welcome screen -->
+            <div class="welcome-screen" id="welcomeScreen">
+                <div class="welcome-icon">&#128214;</div>
+                <div class="welcome-title">Biblia Interactiva RV1960</div>
+                <div class="welcome-subtitle">Selecciona un libro para comenzar a leer</div>
+                <button class="welcome-resume" id="resumeReading" style="display:none">
+                    &#9654; Continuar leyendo
+                </button>
+                <div class="reading-stats" id="readingStats"></div>
+            </div>
+
+            <!-- Reading content -->
+            <div id="chapterContent" style="display:none">
+                <div class="chapter-header">
+                    <div class="chapter-title" id="chapterTitle"></div>
+                    <div class="chapter-subtitle" id="chapterSubtitle"></div>
+                </div>
+                <div class="verse-container" id="verseContainer"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Verse Action Menu -->
+    <div class="verse-actions" id="verseActions">
+        <div class="verse-action-header" id="verseActionHeader"></div>
+        <button class="verse-action-btn" id="actionFavorite"><span class="icon">&#9829;</span> Favorito</button>
+        <button class="verse-action-btn" id="actionCopy"><span class="icon">&#128203;</span> Copiar</button>
+        <button class="verse-action-btn" id="actionShare"><span class="icon">&#9993;</span> Compartir</button>
+        <button class="verse-action-btn" id="actionNote"><span class="icon">&#9998;</span> Nota</button>
+        <div class="highlight-colors" id="highlightColors">
+            <div class="highlight-dot yellow" data-color="yellow" title="Amarillo"></div>
+            <div class="highlight-dot green" data-color="green" title="Verde"></div>
+            <div class="highlight-dot blue" data-color="blue" title="Azul"></div>
+            <div class="highlight-dot pink" data-color="pink" title="Rosa"></div>
+            <div class="highlight-dot orange" data-color="orange" title="Naranja"></div>
+            <div class="highlight-dot none" data-color="none" title="Quitar">&#10005;</div>
+        </div>
+    </div>
+
+    <!-- Note Editor -->
+    <div class="note-editor" id="noteEditor">
+        <div class="note-editor-title" id="noteEditorTitle"></div>
+        <textarea class="note-textarea" id="noteTextarea" placeholder="Escribe tu nota aqu&iacute;..."></textarea>
+        <div class="note-actions">
+            <button class="note-delete-btn" id="noteDelete">Eliminar</button>
+            <button class="note-cancel-btn" id="noteCancel">Cancelar</button>
+            <button class="note-save-btn" id="noteSave">Guardar</button>
+        </div>
+    </div>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- References Sidebar -->
+    <div class="sidebar sidebar-right" id="refSidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">&#128279; Referencias Cruzadas</div>
+            <button class="sidebar-close" id="closeRefSidebar">&#10005;</button>
+        </div>
+        <div class="sidebar-body" id="refSidebarBody">
+            <div class="sidebar-empty">
+                <div class="sidebar-empty-icon">&#128279;</div>
+                Toca un indicador de referencia para ver los vers&iacute;culos relacionados
             </div>
         </div>
     </div>
 
-    <!-- Botón flotante para toggle nav en móvil -->
-    <button class="mobile-nav-toggle" id="mobileNavToggle" onclick="app.toggleMobileNav()">
-        <span id="navToggleIcon">☰</span>
-    </button>
-
-    <!-- Concordance Panel (Sidebar Left) -->
-    <div class="concordance-overlay" id="concordanceOverlay" onclick="app.closeConcordance()"></div>
-    <div class="concordance-panel" id="concordancePanel">
-        <div class="concordance-header">
-            <button class="close-concordance-btn" onclick="app.closeConcordance()">×</button>
-            <h3>📖 Concordancia Bíblica</h3>
-            <div class="concordance-word-title" id="concordanceWordTitle">—</div>
-            <div class="concordance-count" id="concordanceCount">Selecciona una palabra</div>
+    <!-- Concordance Sidebar -->
+    <div class="sidebar sidebar-left" id="concordanceSidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">&#128218; Concordancia</div>
+            <button class="sidebar-close" id="closeConcSidebar">&#10005;</button>
         </div>
-        <div class="concordance-content" id="concordanceContent">
-            <div class="empty-state">
-                <div class="empty-state-icon">📖</div>
-                Activa las concordancias y haz clic en cualquier palabra del texto para ver todas sus apariciones en la Biblia
+        <div class="sidebar-body" id="concordanceSidebarBody">
+            <div class="sidebar-empty">
+                <div class="sidebar-empty-icon">&#128218;</div>
+                Activa concordancias y toca una palabra para ver todas sus apariciones
             </div>
         </div>
     </div>
 
-    <!-- References Panel (Sidebar Right) -->
-    <div class="references-overlay" id="referencesOverlay" onclick="app.closeReferences()"></div>
-    <div class="references-panel" id="referencesPanel">
-        <div class="references-header">
-            <h3>Referencias Cruzadas</h3>
-            <button class="close-references-btn" onclick="app.closeReferences()">×</button>
+    <!-- Favorites/Notes/History Sidebar -->
+    <div class="sidebar sidebar-right" id="userSidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title" id="userSidebarTitle">&#9829; Favoritos</div>
+            <button class="sidebar-close" id="closeUserSidebar">&#10005;</button>
         </div>
-        <div class="references-content" id="referencesContent">
-            <div class="empty-state">
-                Haz clic en una referencia verde para ver su contenido aquí
-            </div>
+        <div class="sidebar-tabs">
+            <button class="sidebar-tab active" data-tab="favorites">&#9829; Favoritos</button>
+            <button class="sidebar-tab" data-tab="notes">&#9998; Notas</button>
+            <button class="sidebar-tab" data-tab="history">&#128340; Historial</button>
         </div>
+        <div class="sidebar-body" id="userSidebarBody"></div>
     </div>
 
-    <!-- Floating Navigation Arrows -->
-    <button class="float-nav float-nav-prev" id="floatPrevBtn" onclick="app.prevChapter()" title="Capítulo anterior">
-        ‹
-    </button>
-    <button class="float-nav float-nav-next" id="floatNextBtn" onclick="app.nextChapter()" title="Capítulo siguiente">
-        ›
-    </button>
-
-    <!-- Chapter Modal -->
-    <div class="chapter-modal-overlay" id="chapterModalOverlay" onclick="app.closeChapterModal()">
-        <div class="chapter-modal" onclick="event.stopPropagation()">
-            <div class="chapter-modal-header">
-                <div class="chapter-modal-title" id="chapterModalTitle">Capítulo</div>
-                <button class="chapter-modal-close" onclick="app.closeChapterModal()">×</button>
-            </div>
-            <div class="chapter-modal-content" id="chapterModalContent">
-                <div class="empty-state">Cargando...</div>
-            </div>
-        </div>
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobileNav" style="display:none">
+        <button class="mobile-nav-btn" id="mobilePrev">&#9664;</button>
+        <button class="mobile-nav-btn" id="mobileNext">&#9654;</button>
     </div>
 
-    <!-- Custom Book Dropdown Overlay & Panel -->
-    <div class="custom-book-dropdown-overlay" id="customBookOverlay"></div>
-    <div class="custom-book-dropdown" id="customBookDropdown">
-        <!-- Vista de libros -->
-        <div id="booksView">
-            <div class="book-section-title">📜 Antiguo Testamento</div>
-            <div class="books-grid" id="oldTestamentBooks"></div>
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
 
-            <div class="book-section-title">✝️ Nuevo Testamento</div>
-            <div class="books-grid" id="newTestamentBooks"></div>
-        </div>
+    <!-- Footer -->
+    <footer class="footer">
+        Biblia Reina Valera 1960 &bull; Aplicaci&oacute;n interactiva de estudio b&iacute;blico
+    </footer>
 
-        <!-- Vista de capítulos -->
-        <div id="chaptersView" style="display: none;">
-            <button class="back-to-books-btn" id="backToBooksBtn">← Volver a libros</button>
-            <div class="chapter-section-title" id="selectedBookTitle"></div>
-            <div class="chapters-grid" id="chaptersGrid"></div>
-        </div>
-    </div>
-
+    <!-- Scripts -->
     <script src="biblia-data.js"></script>
     <script src="biblia-referencias.js"></script>
-    <script src="biblia-jesus-words.js"></script>
     <script src="biblia-titulos.js"></script>
+    <script src="biblia-jesus-words.js"></script>
     <script src="biblia-app.js"></script>
 </body>
 </html>

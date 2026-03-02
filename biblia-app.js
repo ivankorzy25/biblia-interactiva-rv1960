@@ -1,1470 +1,1359 @@
-// Aplicación de Biblia Interactiva - Nueva Versión
+// ============================================
+// BIBLIA INTERACTIVA RV1960 - App Principal v2
+// Con: Dark Mode, Favoritos, Notas, Resaltado,
+// Compartir, Versículo del Día, Historial,
+// Progreso de lectura, PWA
+// ============================================
+
 class BibliaApp {
     constructor() {
         this.currentBook = null;
         this.currentChapter = null;
         this.currentBookData = null;
-        this.referencesVisible = true;
-        this.lastScrollTop = 0;
-        this.currentFontSize = 'xl'; // Default font size
-        this.searchTimeout = null;
-        this.searchIndex = null; // Índice de búsqueda preconstruido
+        this.selectedVerse = null;
 
-        // Concordancias
+        // Features state
+        this.referencesVisible = false;
         this.concordanceEnabled = false;
         this.concordanceCache = {};
         this.commonWords = this.buildCommonWordsList();
+        this.currentFontSize = 'lg';
+        this.searchTimeout = null;
+        this.searchIndex = null;
 
-        // Mobile nav state
-        this.mobileNavCollapsed = false;
+        // User data (localStorage)
+        this.favorites = this.loadData('biblia_favorites') || {};
+        this.notes = this.loadData('biblia_notes') || {};
+        this.highlights = this.loadData('biblia_highlights') || {};
+        this.history = this.loadData('biblia_history') || [];
+        this.readChapters = this.loadData('biblia_read_chapters') || {};
 
         this.init();
     }
 
+    // ==========================================
+    // INITIALIZATION
+    // ==========================================
     init() {
-        this.populateBookSelect();
-        this.setupScrollBehavior();
-        this.setupKeyboardShortcuts();
-        this.loadFontSizePreference();
+        this.setupTheme();
+        this.populateBookDropdown();
+        this.setupNavigation();
         this.setupSearch();
         this.buildSearchIndex();
-        this.loadConcordancePreference();
-        this.setupConcordanceClickHandler();
+        this.setupToolbar();
+        this.setupFontSize();
+        this.setupVerseActions();
+        this.setupNoteEditor();
+        this.setupSidebars();
+        this.setupKeyboardShortcuts();
+        this.setupSwipeGestures();
+        this.setupVerseOfDay();
+        this.showWelcomeScreen();
+        this.registerServiceWorker();
     }
 
-    // Configurar atajos de teclado
-    setupKeyboardShortcuts() {
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                // Cerrar resultados de búsqueda
-                const searchResults = document.getElementById('searchResults');
-                if (searchResults && searchResults.classList.contains('active')) {
-                    searchResults.classList.remove('active');
-                    return;
-                }
+    // ==========================================
+    // THEME (Dark Mode)
+    // ==========================================
+    setupTheme() {
+        const saved = localStorage.getItem('biblia_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+        this.updateThemeIcon(saved);
 
-                // Cerrar dropdown personalizado si está abierto
-                const customDropdown = document.getElementById('customBookDropdown');
-                const customOverlay = document.getElementById('customBookOverlay');
-                const customTrigger = document.getElementById('customBookTrigger');
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('biblia_theme', next);
+            this.updateThemeIcon(next);
+            this.toast(next === 'dark' ? 'Modo oscuro activado' : 'Modo claro activado');
+        });
+    }
 
-                if (customDropdown && customDropdown.classList.contains('active')) {
-                    customOverlay.classList.remove('active');
-                    customDropdown.classList.remove('active');
-                    customTrigger.classList.remove('active');
-                    return;
-                }
+    updateThemeIcon(theme) {
+        const btn = document.getElementById('themeToggle');
+        btn.innerHTML = theme === 'dark' ? '&#9788;' : '&#9790;';
+    }
 
-                // Cerrar modal de capítulo si está abierto
-                const modalOverlay = document.getElementById('chapterModalOverlay');
-                if (modalOverlay && modalOverlay.classList.contains('active')) {
-                    this.closeChapterModal();
-                }
+    // ==========================================
+    // BOOK DROPDOWN
+    // ==========================================
+    populateBookDropdown() {
+        const dropdown = document.getElementById('bookDropdown');
+        const btn = document.getElementById('bookSelectorBtn');
+
+        let html = '<div class="testament-label">Antiguo Testamento</div><div class="book-grid">';
+        let switchedTestament = false;
+
+        BIBLE_BOOKS.forEach(book => {
+            if (book.testament === 'new' && !switchedTestament) {
+                html += '</div><div class="testament-label">Nuevo Testamento</div><div class="book-grid">';
+                switchedTestament = true;
             }
-
-            // Atajo Ctrl+F o Cmd+F para enfocar búsqueda
-            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-                e.preventDefault();
-                const searchInput = document.getElementById('searchInput');
-                if (searchInput) {
-                    searchInput.focus();
-                    searchInput.select();
-                }
-            }
+            html += `<div class="book-item" data-id="${book.id}">${book.name}</div>`;
         });
-    }
-
-    // Configurar comportamiento de scroll para las flechas flotantes
-    setupScrollBehavior() {
-        let scrollTimeout;
-        window.addEventListener('scroll', () => {
-            const floatPrevBtn = document.getElementById('floatPrevBtn');
-            const floatNextBtn = document.getElementById('floatNextBtn');
-
-            if (!floatPrevBtn || !floatNextBtn) return;
-            if (!this.currentBook || !this.currentChapter) return;
-
-            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-
-            // Ocultar flechas al hacer scroll
-            floatPrevBtn.style.opacity = '0.3';
-            floatNextBtn.style.opacity = '0.3';
-
-            // Mostrar flechas completamente después de dejar de hacer scroll
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(() => {
-                floatPrevBtn.style.opacity = '';
-                floatNextBtn.style.opacity = '';
-            }, 500);
-
-            this.lastScrollTop = scrollTop;
-        });
-    }
-
-    // Poblar el dropdown de libros personalizado
-    populateBookSelect() {
-        const oldTestamentContainer = document.getElementById('oldTestamentBooks');
-        const newTestamentContainer = document.getElementById('newTestamentBooks');
-        const customTrigger = document.getElementById('customBookTrigger');
-        const customOverlay = document.getElementById('customBookOverlay');
-        const customDropdown = document.getElementById('customBookDropdown');
-        const backToBooks = document.getElementById('backToBooksBtn');
-
-        // Poblar libros del Antiguo Testamento
-        BIBLE_BOOKS.filter(book => book.testament === 'old').forEach(book => {
-            const bookOption = document.createElement('div');
-            bookOption.className = 'book-option';
-            bookOption.textContent = book.name;
-            bookOption.dataset.bookId = book.id;
-            bookOption.dataset.chapters = book.chapters;
-            bookOption.addEventListener('click', () => this.showChapters(book));
-            oldTestamentContainer.appendChild(bookOption);
-        });
-
-        // Poblar libros del Nuevo Testamento
-        BIBLE_BOOKS.filter(book => book.testament === 'new').forEach(book => {
-            const bookOption = document.createElement('div');
-            bookOption.className = 'book-option new-testament';
-            bookOption.textContent = book.name;
-            bookOption.dataset.bookId = book.id;
-            bookOption.dataset.chapters = book.chapters;
-            bookOption.addEventListener('click', () => this.showChapters(book));
-            newTestamentContainer.appendChild(bookOption);
-        });
-
-        // Event listeners para abrir/cerrar dropdown
-        customTrigger.addEventListener('click', () => {
-            customOverlay.classList.toggle('active');
-            customDropdown.classList.toggle('active');
-            customTrigger.classList.toggle('active');
-            // Siempre volver a la vista de libros al abrir
-            this.showBooksView();
-        });
-
-        customOverlay.addEventListener('click', () => {
-            customOverlay.classList.remove('active');
-            customDropdown.classList.remove('active');
-            customTrigger.classList.remove('active');
-        });
-
-        // Botón volver a libros
-        backToBooks.addEventListener('click', () => {
-            this.showBooksView();
-        });
-    }
-
-    // Mostrar vista de libros
-    showBooksView() {
-        document.getElementById('booksView').style.display = 'block';
-        document.getElementById('chaptersView').style.display = 'none';
-    }
-
-    // Mostrar capítulos de un libro
-    showChapters(book) {
-        const selectedBookTitle = document.getElementById('selectedBookTitle');
-        const chaptersGrid = document.getElementById('chaptersGrid');
-
-        // Actualizar título
-        selectedBookTitle.textContent = `${book.name} - Selecciona un capítulo`;
-
-        // Limpiar grid de capítulos
-        chaptersGrid.innerHTML = '';
-
-        // Crear botones para cada capítulo
-        for (let i = 1; i <= book.chapters; i++) {
-            const chapterOption = document.createElement('div');
-            chapterOption.className = 'chapter-option';
-            chapterOption.textContent = i;
-            chapterOption.addEventListener('click', () => this.selectBookAndChapter(book, i));
-            chaptersGrid.appendChild(chapterOption);
-        }
-
-        // Mostrar vista de capítulos
-        document.getElementById('booksView').style.display = 'none';
-        document.getElementById('chaptersView').style.display = 'block';
-    }
-
-    // Seleccionar libro y capítulo
-    selectBookAndChapter(book, chapter) {
-        const customLabel = document.getElementById('customBookLabel');
-        const customOverlay = document.getElementById('customBookOverlay');
-        const customDropdown = document.getElementById('customBookDropdown');
-        const customTrigger = document.getElementById('customBookTrigger');
-
-        // Actualizar label
-        customLabel.textContent = `${book.name} ${chapter}`;
-
-        // Cerrar dropdown
-        customOverlay.classList.remove('active');
-        customDropdown.classList.remove('active');
-        customTrigger.classList.remove('active');
-
-        // Actualizar estado y cargar capítulo
-        this.currentBook = book.id;
-        this.currentBookData = book;
-        this.currentChapter = chapter;
-
-        // Poblar el dropdown de capítulos
-        this.populateChapterSelect(book.chapters);
-        document.getElementById('chapterSelect').value = chapter;
-
-        // Cargar el capítulo seleccionado
-        this.loadChapter();
-
-        // Auto-colapsar nav en móvil después de seleccionar capítulo
-        if (window.innerWidth <= 768 && !this.mobileNavCollapsed) {
-            setTimeout(() => {
-                this.collapseMobileNav();
-            }, 500);
-        }
-    }
-
-    // Cuando se selecciona un libro
-    onBookChange() {
-        const bookSelect = document.getElementById('bookSelect');
-        const bookId = bookSelect.value;
-
-        if (!bookId) {
-            this.resetChapterSelect();
-            return;
-        }
-
-        this.currentBook = bookId;
-        this.currentBookData = BIBLE_BOOKS.find(b => b.id === bookId);
-
-        // Poblar el dropdown de capítulos
-        this.populateChapterSelect(this.currentBookData.chapters);
-
-        // Cargar el primer capítulo automáticamente
-        this.currentChapter = 1;
-        document.getElementById('chapterSelect').value = 1;
-        this.loadChapter();
-    }
-
-    // Poblar el dropdown de capítulos
-    populateChapterSelect(numChapters) {
-        const chapterSelect = document.getElementById('chapterSelect');
-        chapterSelect.innerHTML = '';
-        chapterSelect.disabled = false;
-
-        for (let i = 1; i <= numChapters; i++) {
-            const option = document.createElement('option');
-            option.value = i;
-            option.textContent = `Capítulo ${i}`;
-            chapterSelect.appendChild(option);
-        }
-
-        this.updateNavigationButtons();
-    }
-
-    // Cuando se selecciona un capítulo
-    onChapterChange() {
-        const chapterSelect = document.getElementById('chapterSelect');
-        const chapter = parseInt(chapterSelect.value);
-
-        if (chapter) {
-            this.currentChapter = chapter;
-            this.loadChapter();
-
-            // Auto-colapsar nav en móvil después de seleccionar capítulo
-            if (window.innerWidth <= 768 && !this.mobileNavCollapsed) {
-                setTimeout(() => {
-                    this.collapseMobileNav();
-                }, 500);
-            }
-        }
-    }
-
-    // Cargar y mostrar el capítulo actual
-    loadChapter() {
-        if (!this.currentBook || !this.currentChapter) return;
-
-        const chapterKey = `${this.currentBook}_${this.currentChapter}`;
-        const verses = BIBLE_TEXT[chapterKey];
-
-        const readerContent = document.getElementById('readerContent');
-
-        if (!verses) {
-            readerContent.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">⚠️</div>
-                    Capítulo no disponible
-                </div>
-            `;
-            return;
-        }
-
-        // Construir el HTML del capítulo
-        let html = `
-            <div class="chapter-header">
-                <div class="chapter-title">${this.currentBookData.name} ${this.currentChapter}</div>
-                <div class="chapter-subtitle">Reina Valera 1960</div>
-            </div>
-            <div class="verses-container">
-        `;
-
-        // Obtener títulos de sección si existen
-        const sectionTitles = (typeof SECTION_TITLES !== 'undefined' && SECTION_TITLES[chapterKey]) ? SECTION_TITLES[chapterKey] : [];
-
-        verses.forEach(verseData => {
-            const verseNumber = verseData.verse;
-            let verseText = verseData.text;
-            const references = verseData.references || [];
-
-            // Agregar título de sección si existe para este versículo
-            const sectionTitle = sectionTitles.find(st => st.verse === verseNumber);
-            if (sectionTitle) {
-                html += `<div class="section-title">${sectionTitle.title}</div>`;
-            }
-
-            // Resaltar palabras de Jesús
-            if (this.isJesusVerse(this.currentBook, this.currentChapter, verseNumber)) {
-                verseText = '<span class="jesus-words">' + verseText + '</span>';
-            }
-
-            let verseHtml = `
-                <span class="verse" data-verse="${verseNumber}">
-                    <span class="verse-number">${verseNumber}</span>${verseText}`;
-
-            // Agregar referencias cruzadas
-            if (references.length > 0) {
-                const validRefs = references.filter(ref => ref && ref.trim() !== '');
-                validRefs.forEach((ref, index) => {
-                    verseHtml += `<a href="#" class="cross-reference"
-                        data-ref="${ref}"
-                        onclick="app.showReference('${ref}', event)">${ref}</a>`;
-
-                    // Agregar separador si no es la última referencia
-                    if (index < validRefs.length - 1) {
-                        verseHtml += '<span class="ref-separator">-</span>';
-                    }
-                });
-            }
-
-            verseHtml += '</span>';
-            html += verseHtml;
-        });
-
         html += '</div>';
+        dropdown.innerHTML = html;
 
-        // Procesar palabras para concordancias si está activado
-        html = this.processConcordanceWords(html);
+        // Toggle dropdown
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = dropdown.classList.contains('active');
+            this.closeAllDropdowns();
+            if (!isOpen) {
+                dropdown.classList.add('active');
+                btn.classList.add('open');
+            }
+        });
 
-        readerContent.innerHTML = html;
+        // Book selection
+        dropdown.addEventListener('click', (e) => {
+            const item = e.target.closest('.book-item');
+            if (!item) return;
+            const bookId = item.dataset.id;
+            this.selectBook(bookId);
+            dropdown.classList.remove('active');
+            btn.classList.remove('open');
+        });
 
-        // Aplicar el estado de visibilidad de referencias
-        if (!this.referencesVisible) {
-            const allRefs = document.querySelectorAll('.cross-reference');
-            const allSeparators = document.querySelectorAll('.ref-separator');
-            allRefs.forEach(ref => ref.style.display = 'none');
-            allSeparators.forEach(sep => sep.style.display = 'none');
-        }
-
-        // Scroll al inicio
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-
-        // Actualizar botones de navegación
-        this.updateNavigationButtons();
+        // Close on outside click
+        document.addEventListener('click', () => this.closeAllDropdowns());
     }
 
-    // Verificar si un versículo contiene palabras de Jesús
-    isJesusVerse(bookId, chapter, verseNumber) {
-        if (typeof JESUS_WORDS === 'undefined') {
-            return false;
-        }
-
-        const chapterKey = `${bookId}_${chapter}`;
-
-        if (!JESUS_WORDS[chapterKey]) {
-            return false;
-        }
-
-        return JESUS_WORDS[chapterKey].includes(verseNumber);
-    }
-
-    // Mostrar una referencia en el panel lateral
-    showReference(reference, event) {
-        if (event) event.preventDefault();
-
-        const refData = this.parseReference(reference);
-        if (!refData) {
-            console.warn('No se pudo parsear la referencia:', reference);
-            return;
-        }
-
-        const { bookId, chapter, verseStart, verseEnd } = refData;
-        const chapterKey = `${bookId}_${chapter}`;
-        const verses = BIBLE_TEXT[chapterKey];
-
-        if (!verses) {
-            this.showReferenceError(reference);
-            return;
-        }
-
+    selectBook(bookId) {
         const book = BIBLE_BOOKS.find(b => b.id === bookId);
-        const referencesContent = document.getElementById('referencesContent');
+        if (!book) return;
 
-        let html = '';
+        this.currentBook = book;
+        this.currentBookData = typeof BIBLE_DATA !== 'undefined' ? BIBLE_DATA[bookId] : null;
 
-        // Obtener los versículos del rango
-        const relevantVerses = verses.filter(v => {
-            const vNum = v.verse;
-            return vNum >= verseStart && vNum <= verseEnd;
+        // Update button label
+        document.getElementById('bookSelectorLabel').textContent = book.name;
+
+        // Update active state
+        document.querySelectorAll('.book-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.id === bookId);
         });
 
-        if (relevantVerses.length > 0) {
-            // Usar el primer versículo para la navegación
-            const firstVerse = relevantVerses[0].verse;
-
-            relevantVerses.forEach(verseData => {
-                html += `
-                    <div class="reference-item">
-                        <div class="reference-title">${book.name} ${chapter}:${verseData.verse}</div>
-                        <div class="reference-text">${verseData.text}</div>
-                    </div>
-                `;
-            });
-
-            // Agregar un solo botón al final si hay múltiples versículos
-            html += `
-                <div style="text-align: center; margin-top: 15px;">
-                    <button class="reference-nav-btn" onclick="app.navigateToReference('${bookId}', ${chapter}, ${verseStart}, ${verseEnd})">
-                        📖 Ver capítulo completo
-                    </button>
-                </div>
-            `;
-        } else {
-            html += '<div class="empty-state">Versículo no encontrado</div>';
-        }
-
-        referencesContent.innerHTML = html;
-
-        // Abrir el panel
-        this.openReferences();
+        // Build chapter dropdown
+        this.buildChapterDropdown(book.chapters);
+        this.loadChapter(1);
     }
 
-    // Parsear una referencia (ej: "Is 40:3" o "Mt 3:1-3")
-    parseReference(ref) {
-        const refLower = ref.trim().toLowerCase();
+    buildChapterDropdown(count) {
+        const dropdown = document.getElementById('chapterDropdown');
+        let html = '<div class="chapter-grid">';
+        for (let i = 1; i <= count; i++) {
+            const isRead = this.readChapters[`${this.currentBook.id}_${i}`];
+            html += `<div class="chapter-item${isRead ? ' read' : ''}" data-ch="${i}">${i}</div>`;
+        }
+        html += '</div>';
+        dropdown.innerHTML = html;
 
-        // Encontrar el libro por abreviatura
-        const book = BIBLE_BOOKS.find(b => {
-            return b.abbr.toLowerCase() === refLower.split(' ')[0] ||
-                   b.id.toLowerCase() === refLower.split(' ')[0];
+        dropdown.addEventListener('click', (e) => {
+            const item = e.target.closest('.chapter-item');
+            if (!item) return;
+            this.loadChapter(parseInt(item.dataset.ch));
+            dropdown.classList.remove('active');
+        });
+    }
+
+    // ==========================================
+    // NAVIGATION
+    // ==========================================
+    setupNavigation() {
+        const chapterBtn = document.getElementById('chapterBtn');
+        const chapterDropdown = document.getElementById('chapterDropdown');
+
+        chapterBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = chapterDropdown.classList.contains('active');
+            this.closeAllDropdowns();
+            if (!isOpen) chapterDropdown.classList.add('active');
         });
 
-        if (!book) return null;
-
-        // Extraer capítulo y versículos
-        const match = ref.match(/(\d+):(\d+)(?:-(\d+))?/);
-        if (!match) return null;
-
-        const chapter = parseInt(match[1]);
-        const verseStart = parseInt(match[2]);
-        const verseEnd = match[3] ? parseInt(match[3]) : verseStart;
-
-        return {
-            bookId: book.id,
-            chapter,
-            verseStart,
-            verseEnd
-        };
+        // Prev/Next
+        document.getElementById('prevChapter').addEventListener('click', () => this.prevChapter());
+        document.getElementById('nextChapter').addEventListener('click', () => this.nextChapter());
+        document.getElementById('mobilePrev').addEventListener('click', () => this.prevChapter());
+        document.getElementById('mobileNext').addEventListener('click', () => this.nextChapter());
     }
 
-    showReferenceError(reference) {
-        const referencesContent = document.getElementById('referencesContent');
-        referencesContent.innerHTML = `
-            <div class="reference-item">
-                <div class="reference-title">Error</div>
-                <div class="reference-text">No se pudo cargar la referencia: ${reference}</div>
-            </div>
-        `;
-        this.openReferences();
-    }
-
-    // Abrir el panel de referencias
-    openReferences() {
-        document.getElementById('referencesOverlay').classList.add('active');
-        document.getElementById('referencesPanel').classList.add('active');
-
-        // Ocultar flechas flotantes cuando el panel está abierto
-        document.getElementById('floatPrevBtn').style.opacity = '0';
-        document.getElementById('floatNextBtn').style.opacity = '0';
-    }
-
-    // Cerrar el panel de referencias
-    closeReferences() {
-        document.getElementById('referencesOverlay').classList.remove('active');
-        document.getElementById('referencesPanel').classList.remove('active');
-
-        // Mostrar flechas flotantes cuando el panel se cierra
-        document.getElementById('floatPrevBtn').style.opacity = '';
-        document.getElementById('floatNextBtn').style.opacity = '';
-    }
-
-    // Actualizar estado de botones de navegación
-    updateNavigationButtons() {
-        const prevBtn = document.getElementById('prevChapterBtn');
-        const nextBtn = document.getElementById('nextChapterBtn');
-        const floatPrevBtn = document.getElementById('floatPrevBtn');
-        const floatNextBtn = document.getElementById('floatNextBtn');
-
-        if (!this.currentBook || !this.currentChapter) {
-            prevBtn.disabled = true;
-            nextBtn.disabled = true;
-            floatPrevBtn.classList.remove('active');
-            floatNextBtn.classList.remove('active');
-            return;
-        }
-
-        // Mostrar flechas flotantes cuando hay un capítulo cargado
-        floatPrevBtn.classList.add('active');
-        floatNextBtn.classList.add('active');
-
-        // Habilitar/deshabilitar botón anterior
-        const hasPrev = this.currentChapter > 1;
-        prevBtn.disabled = !hasPrev;
-        floatPrevBtn.disabled = !hasPrev;
-
-        // Habilitar/deshabilitar botón siguiente
-        const hasNext = this.currentChapter < this.currentBookData.chapters;
-        nextBtn.disabled = !hasNext;
-        floatNextBtn.disabled = !hasNext;
-    }
-
-    // Capítulo anterior
     prevChapter() {
+        if (!this.currentBook) return;
         if (this.currentChapter > 1) {
-            this.currentChapter--;
-            document.getElementById('chapterSelect').value = this.currentChapter;
-            this.loadChapter();
+            this.loadChapter(this.currentChapter - 1);
+        } else {
+            // Previous book
+            const idx = BIBLE_BOOKS.findIndex(b => b.id === this.currentBook.id);
+            if (idx > 0) {
+                const prevBook = BIBLE_BOOKS[idx - 1];
+                this.selectBook(prevBook.id);
+                this.loadChapter(prevBook.chapters);
+            }
         }
     }
 
-    // Capítulo siguiente
     nextChapter() {
-        if (this.currentChapter < this.currentBookData.chapters) {
-            this.currentChapter++;
-            document.getElementById('chapterSelect').value = this.currentChapter;
-            this.loadChapter();
-        }
-    }
-
-    resetChapterSelect() {
-        const chapterSelect = document.getElementById('chapterSelect');
-        chapterSelect.innerHTML = '<option value="">Capítulo</option>';
-        chapterSelect.disabled = true;
-        this.updateNavigationButtons();
-    }
-
-    // Toggle visibilidad de referencias cruzadas
-    toggleReferencesVisibility() {
-        this.referencesVisible = !this.referencesVisible;
-
-        const allRefs = document.querySelectorAll('.cross-reference');
-        const allSeparators = document.querySelectorAll('.ref-separator');
-        const toggleIcon = document.getElementById('refToggleIcon');
-        const toggleBtn = document.getElementById('toggleReferencesBtn');
-
-        if (this.referencesVisible) {
-            // Mostrar referencias
-            allRefs.forEach(ref => ref.style.display = 'inline');
-            allSeparators.forEach(sep => sep.style.display = 'inline');
-            toggleIcon.textContent = '👁️';
-            toggleBtn.style.background = 'white';
-            toggleBtn.style.color = '#555';
-            toggleBtn.style.borderColor = '#e0e0e0';
+        if (!this.currentBook) return;
+        if (this.currentChapter < this.currentBook.chapters) {
+            this.loadChapter(this.currentChapter + 1);
         } else {
-            // Ocultar referencias
-            allRefs.forEach(ref => ref.style.display = 'none');
-            allSeparators.forEach(sep => sep.style.display = 'none');
-            toggleIcon.textContent = '👁️‍🗨️';
-            toggleBtn.style.background = '#667eea';
-            toggleBtn.style.color = 'white';
-            toggleBtn.style.borderColor = '#667eea';
+            // Next book
+            const idx = BIBLE_BOOKS.findIndex(b => b.id === this.currentBook.id);
+            if (idx < BIBLE_BOOKS.length - 1) {
+                this.selectBook(BIBLE_BOOKS[idx + 1].id);
+            }
         }
     }
 
-    // Navegar a una referencia y resaltar el versículo (ahora en modal)
-    navigateToReference(bookId, chapter, verseStart, verseEnd = null) {
-        // Cerrar el panel de referencias antes de abrir el modal
-        this.closeReferences();
-        // Si verseEnd no se proporciona, usar verseStart como valor
-        const endVerse = verseEnd !== null ? verseEnd : verseStart;
-        this.openChapterModal(bookId, chapter, verseStart, endVerse);
+    closeAllDropdowns() {
+        document.querySelectorAll('.book-dropdown, .chapter-dropdown, .search-results').forEach(el => {
+            el.classList.remove('active');
+        });
+        const btn = document.getElementById('bookSelectorBtn');
+        if (btn) btn.classList.remove('open');
     }
 
-    // Abrir modal con capítulo completo
-    openChapterModal(bookId, chapter, verseStart, verseEnd) {
-        const book = BIBLE_BOOKS.find(b => b.id === bookId);
-        const chapterKey = `${bookId}_${chapter}`;
-        const verses = BIBLE_TEXT[chapterKey];
+    // ==========================================
+    // CHAPTER LOADING
+    // ==========================================
+    loadChapter(chapterNum) {
+        if (!this.currentBook || !this.currentBookData) return;
 
-        if (!verses || !book) {
-            alert('Capítulo no disponible');
-            return;
-        }
+        this.currentChapter = chapterNum;
+        const bookId = this.currentBook.id;
+        const chapterData = this.currentBookData[chapterNum];
 
-        // Actualizar título del modal
-        document.getElementById('chapterModalTitle').textContent = `${book.name} ${chapter}`;
+        if (!chapterData) return;
 
-        // Obtener títulos de sección si existen
-        const sectionTitles = (typeof SECTION_TITLES !== 'undefined' && SECTION_TITLES[chapterKey]) ? SECTION_TITLES[chapterKey] : [];
+        // Update UI
+        document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('chapterContent').style.display = 'block';
+        document.getElementById('mobileNav').style.display = '';
+        document.getElementById('chapterTitle').textContent = `${this.currentBook.name} ${chapterNum}`;
+        document.getElementById('chapterSubtitle').textContent = `${Object.keys(chapterData).length} versículos`;
+        document.getElementById('chapterBtn').textContent = `Cap ${chapterNum}`;
 
-        // Construir HTML del capítulo
+        // Update chapter grid active state
+        document.querySelectorAll('.chapter-item').forEach(el => {
+            el.classList.toggle('active', parseInt(el.dataset.ch) === chapterNum);
+        });
+
+        // Update nav buttons
+        document.getElementById('prevChapter').disabled = (chapterNum === 1 && BIBLE_BOOKS.findIndex(b => b.id === bookId) === 0);
+        document.getElementById('nextChapter').disabled = (chapterNum === this.currentBook.chapters && BIBLE_BOOKS.findIndex(b => b.id === bookId) === BIBLE_BOOKS.length - 1);
+
+        // Render verses
+        this.renderVerses(chapterData, bookId, chapterNum);
+
+        // Mark as read
+        this.readChapters[`${bookId}_${chapterNum}`] = true;
+        this.saveData('biblia_read_chapters', this.readChapters);
+        this.updateReadingProgress();
+
+        // Add to history
+        this.addToHistory(bookId, chapterNum);
+
+        // Save last position
+        localStorage.setItem('biblia_last_position', JSON.stringify({ book: bookId, chapter: chapterNum }));
+
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    renderVerses(chapterData, bookId, chapterNum) {
+        const container = document.getElementById('verseContainer');
+        const key = `${bookId}_${chapterNum}`;
+
+        // Get section titles
+        const sectionTitles = (typeof SECTION_TITLES !== 'undefined' && SECTION_TITLES[key]) || [];
+
+        // Get jesus words
+        const jesusVerses = (typeof JESUS_WORDS !== 'undefined' && JESUS_WORDS[key]) || [];
+
+        // Get references
+        const refs = (typeof CROSS_REFERENCES !== 'undefined' && CROSS_REFERENCES[key]) || {};
+
         let html = '';
-        verses.forEach(verseData => {
-            const vNum = verseData.verse;
-            let verseText = verseData.text;
+        const verseNums = Object.keys(chapterData).map(Number).sort((a, b) => a - b);
 
-            // Agregar título de sección si existe para este versículo
-            const sectionTitle = sectionTitles.find(st => st.verse === vNum);
+        verseNums.forEach(vNum => {
+            // Section title
+            const sectionTitle = sectionTitles.find(s => s.verse === vNum);
             if (sectionTitle) {
-                html += `<div class="section-title">${sectionTitle.title}</div>`;
+                html += `<span class="section-title">${sectionTitle.title}</span>`;
             }
 
-            // Resaltar palabras de Jesús
-            if (this.isJesusVerse(bookId, chapter, vNum)) {
-                verseText = '<span class="jesus-words">' + verseText + '</span>';
+            const verseText = chapterData[vNum];
+            const verseKey = `${key}_${vNum}`;
+            const isJesus = jesusVerses.includes(vNum);
+            const isFav = this.favorites[verseKey];
+            const hasNote = this.notes[verseKey];
+            const highlightColor = this.highlights[verseKey];
+
+            let classes = ['verse'];
+            if (isJesus) classes.push('jesus-words');
+            if (isFav) classes.push('favorite');
+            if (hasNote) classes.push('has-note');
+            if (highlightColor) classes.push(`highlight-${highlightColor}`);
+
+            // Process text for concordance
+            let processedText = verseText;
+            if (this.concordanceEnabled) {
+                processedText = this.addConcordanceMarkup(verseText);
             }
 
-            // Marcar los versículos en el rango de referencia para resaltarlos
-            const highlightClass = (vNum >= verseStart && vNum <= verseEnd) ? ' highlight' : '';
+            // Add reference indicator
+            let refHtml = '';
+            if (refs[vNum] && refs[vNum].length > 0) {
+                refHtml = `<span class="cross-ref" data-verse="${vNum}" title="${refs[vNum].length} referencias">+</span>`;
+            }
 
-            html += `
-                <span class="verse${highlightClass}" data-verse="${vNum}">
-                    <span class="verse-number">${vNum}</span>${verseText}
-                </span>
-            `;
+            html += `<span class="${classes.join(' ')}" data-verse="${vNum}" data-book="${bookId}" data-chapter="${chapterNum}">`;
+            html += `<span class="verse-num">${vNum}</span>`;
+            html += processedText;
+            html += refHtml;
+            html += `</span> `;
         });
 
-        // Insertar contenido en el modal
-        document.getElementById('chapterModalContent').innerHTML = html;
+        container.innerHTML = html;
 
-        // Prevenir scroll del body cuando el modal está abierto
-        document.body.style.overflow = 'hidden';
+        // Setup verse click handlers
+        container.querySelectorAll('.verse').forEach(el => {
+            el.addEventListener('click', (e) => {
+                if (e.target.classList.contains('cross-ref') || e.target.classList.contains('concordance-word')) return;
+                this.showVerseActions(el, e);
+            });
+        });
 
-        // Mostrar el modal
-        document.getElementById('chapterModalOverlay').classList.add('active');
+        // Cross reference handlers
+        container.querySelectorAll('.cross-ref').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const vNum = parseInt(el.dataset.verse);
+                this.showReferences(bookId, chapterNum, vNum);
+            });
+        });
 
-        // Hacer scroll al versículo resaltado
-        setTimeout(() => {
-            const highlightedVerse = document.querySelector('.chapter-modal-content .verse.highlight');
-            if (highlightedVerse) {
-                highlightedVerse.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
-                });
-            }
-        }, 100);
-    }
-
-    // Cerrar modal de capítulo
-    closeChapterModal() {
-        document.getElementById('chapterModalOverlay').classList.remove('active');
-        // Restaurar scroll del body
-        document.body.style.overflow = '';
-    }
-
-    // Resaltar un versículo específico
-    highlightVerse(verseNumber) {
-        // Buscar todos los versículos
-        const verses = document.querySelectorAll('.verse');
-
-        verses.forEach(verse => {
-            const verseNumElement = verse.querySelector('.verse-number');
-            if (verseNumElement && parseInt(verseNumElement.textContent) === verseNumber) {
-                // Agregar clase de resaltado
-                verse.classList.add('highlight');
-
-                // Scroll suave hasta el versículo con un pequeño offset
-                setTimeout(() => {
-                    verse.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'center'
-                    });
-                }, 100);
-
-                // Remover el resaltado después de 5 segundos
-                setTimeout(() => {
-                    verse.classList.remove('highlight');
-                }, 5000);
-            }
+        // Concordance word handlers
+        container.querySelectorAll('.concordance-word').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showConcordance(el.textContent);
+            });
         });
     }
 
-    // Cargar preferencia de tamaño de fuente desde localStorage
-    loadFontSizePreference() {
-        const savedSize = localStorage.getItem('bibliaFontSize');
-        if (savedSize) {
-            this.setFontSize(savedSize);
+    // ==========================================
+    // VERSE ACTIONS (Favorite, Copy, Share, Note, Highlight)
+    // ==========================================
+    setupVerseActions() {
+        const menu = document.getElementById('verseActions');
+
+        // Favorite
+        document.getElementById('actionFavorite').addEventListener('click', () => {
+            if (!this.selectedVerse) return;
+            this.toggleFavorite();
+            menu.classList.remove('active');
+        });
+
+        // Copy
+        document.getElementById('actionCopy').addEventListener('click', () => {
+            if (!this.selectedVerse) return;
+            this.copyVerse();
+            menu.classList.remove('active');
+        });
+
+        // Share
+        document.getElementById('actionShare').addEventListener('click', () => {
+            if (!this.selectedVerse) return;
+            this.shareVerse();
+            menu.classList.remove('active');
+        });
+
+        // Note
+        document.getElementById('actionNote').addEventListener('click', () => {
+            if (!this.selectedVerse) return;
+            this.openNoteEditor();
+            menu.classList.remove('active');
+        });
+
+        // Highlight colors
+        document.querySelectorAll('.highlight-dot').forEach(dot => {
+            dot.addEventListener('click', () => {
+                if (!this.selectedVerse) return;
+                const color = dot.dataset.color;
+                this.setHighlight(color);
+                menu.classList.remove('active');
+            });
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.verse-actions') && !e.target.closest('.verse')) {
+                menu.classList.remove('active');
+            }
+        });
+    }
+
+    showVerseActions(verseEl, event) {
+        const menu = document.getElementById('verseActions');
+        const vNum = parseInt(verseEl.dataset.verse);
+        const bookId = verseEl.dataset.book;
+        const chapter = parseInt(verseEl.dataset.chapter);
+        const book = BIBLE_BOOKS.find(b => b.id === bookId);
+
+        this.selectedVerse = { el: verseEl, verse: vNum, book: bookId, chapter, bookName: book ? book.name : bookId };
+        const verseKey = `${bookId}_${chapter}_${vNum}`;
+
+        // Update header
+        document.getElementById('verseActionHeader').textContent = `${this.selectedVerse.bookName} ${chapter}:${vNum}`;
+
+        // Update favorite button
+        const favBtn = document.getElementById('actionFavorite');
+        favBtn.innerHTML = this.favorites[verseKey]
+            ? '<span class="icon">&#9829;</span> Quitar favorito'
+            : '<span class="icon">&#9825;</span> Favorito';
+
+        // Update highlight dots
+        const currentHighlight = this.highlights[verseKey];
+        document.querySelectorAll('.highlight-dot').forEach(dot => {
+            dot.classList.toggle('active', dot.dataset.color === currentHighlight);
+        });
+
+        // Position menu
+        const rect = verseEl.getBoundingClientRect();
+        menu.style.left = Math.min(event.clientX, window.innerWidth - 220) + 'px';
+        menu.style.top = Math.min(rect.bottom + 5, window.innerHeight - 280) + 'px';
+        menu.classList.add('active');
+    }
+
+    toggleFavorite() {
+        const { book, chapter, verse, bookName } = this.selectedVerse;
+        const key = `${book}_${chapter}_${verse}`;
+        const verseText = this.getVerseText(book, chapter, verse);
+
+        if (this.favorites[key]) {
+            delete this.favorites[key];
+            this.selectedVerse.el.classList.remove('favorite');
+            this.toast('Favorito eliminado');
         } else {
-            // Aplicar tamaño por defecto
-            this.setFontSize('xl');
+            this.favorites[key] = { book, chapter, verse, bookName, text: verseText.substring(0, 100), date: Date.now() };
+            this.selectedVerse.el.classList.add('favorite');
+            this.toast('Agregado a favoritos');
+        }
+        this.saveData('biblia_favorites', this.favorites);
+    }
+
+    copyVerse() {
+        const { bookName, chapter, verse } = this.selectedVerse;
+        const text = this.getVerseText(this.selectedVerse.book, chapter, verse);
+        const formatted = `"${text}" — ${bookName} ${chapter}:${verse} (RV1960)`;
+
+        navigator.clipboard.writeText(formatted).then(() => {
+            this.toast('Versículo copiado');
+        }).catch(() => {
+            // Fallback
+            const ta = document.createElement('textarea');
+            ta.value = formatted;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            this.toast('Versículo copiado');
+        });
+    }
+
+    shareVerse() {
+        const { bookName, chapter, verse } = this.selectedVerse;
+        const text = this.getVerseText(this.selectedVerse.book, chapter, verse);
+        const formatted = `"${text}"\n— ${bookName} ${chapter}:${verse} (RV1960)`;
+
+        if (navigator.share) {
+            navigator.share({
+                title: `${bookName} ${chapter}:${verse}`,
+                text: formatted
+            }).catch(() => {});
+        } else {
+            // Fallback: copy and suggest sharing
+            navigator.clipboard.writeText(formatted).then(() => {
+                this.toast('Texto copiado. Pégalo donde quieras compartir.');
+            });
         }
     }
 
-    // Cambiar tamaño de fuente
-    setFontSize(size) {
-        // Tamaños válidos: xl, large, medium, small
-        const validSizes = ['xl', 'large', 'medium', 'small'];
-        if (!validSizes.includes(size)) {
-            size = 'xl';
+    setHighlight(color) {
+        const { book, chapter, verse } = this.selectedVerse;
+        const key = `${book}_${chapter}_${verse}`;
+        const el = this.selectedVerse.el;
+
+        // Remove existing highlights
+        el.className = el.className.replace(/highlight-\w+/g, '').trim();
+
+        if (color === 'none') {
+            delete this.highlights[key];
+            this.toast('Resaltado eliminado');
+        } else {
+            this.highlights[key] = color;
+            el.classList.add(`highlight-${color}`);
+            this.toast('Versículo resaltado');
+        }
+        this.saveData('biblia_highlights', this.highlights);
+    }
+
+    getVerseText(bookId, chapter, verse) {
+        if (this.currentBookData && this.currentBookData[chapter]) {
+            return this.currentBookData[chapter][verse] || '';
+        }
+        if (typeof BIBLE_DATA !== 'undefined' && BIBLE_DATA[bookId] && BIBLE_DATA[bookId][chapter]) {
+            return BIBLE_DATA[bookId][chapter][verse] || '';
+        }
+        return '';
+    }
+
+    // ==========================================
+    // NOTE EDITOR
+    // ==========================================
+    setupNoteEditor() {
+        document.getElementById('noteSave').addEventListener('click', () => this.saveNote());
+        document.getElementById('noteDelete').addEventListener('click', () => this.deleteNote());
+        document.getElementById('noteCancel').addEventListener('click', () => this.closeNoteEditor());
+    }
+
+    openNoteEditor() {
+        const { book, chapter, verse, bookName } = this.selectedVerse;
+        const key = `${book}_${chapter}_${verse}`;
+        const editor = document.getElementById('noteEditor');
+        const textarea = document.getElementById('noteTextarea');
+
+        document.getElementById('noteEditorTitle').textContent = `Nota: ${bookName} ${chapter}:${verse}`;
+        textarea.value = this.notes[key] ? this.notes[key].text : '';
+
+        // Show/hide delete button
+        document.getElementById('noteDelete').style.display = this.notes[key] ? '' : 'none';
+
+        // Position editor
+        const rect = this.selectedVerse.el.getBoundingClientRect();
+        editor.style.left = Math.min(rect.left, window.innerWidth - 340) + 'px';
+        editor.style.top = Math.min(rect.bottom + 10, window.innerHeight - 250) + 'px';
+        editor.classList.add('active');
+        textarea.focus();
+    }
+
+    saveNote() {
+        const { book, chapter, verse, bookName } = this.selectedVerse;
+        const key = `${book}_${chapter}_${verse}`;
+        const text = document.getElementById('noteTextarea').value.trim();
+
+        if (text) {
+            this.notes[key] = { book, chapter, verse, bookName, text, date: Date.now() };
+            this.selectedVerse.el.classList.add('has-note');
+            this.toast('Nota guardada');
+        } else {
+            delete this.notes[key];
+            this.selectedVerse.el.classList.remove('has-note');
         }
 
-        this.currentFontSize = size;
+        this.saveData('biblia_notes', this.notes);
+        this.closeNoteEditor();
+    }
 
-        // Remover todas las clases de tamaño
-        document.body.classList.remove('font-size-xl', 'font-size-large', 'font-size-medium', 'font-size-small');
+    deleteNote() {
+        const { book, chapter, verse } = this.selectedVerse;
+        const key = `${book}_${chapter}_${verse}`;
+        delete this.notes[key];
+        this.selectedVerse.el.classList.remove('has-note');
+        this.saveData('biblia_notes', this.notes);
+        this.closeNoteEditor();
+        this.toast('Nota eliminada');
+    }
 
-        // Agregar la clase correspondiente
-        document.body.classList.add(`font-size-${size}`);
+    closeNoteEditor() {
+        document.getElementById('noteEditor').classList.remove('active');
+    }
 
-        // Actualizar botones activos
-        const fontBtns = document.querySelectorAll('.font-size-btn');
-        fontBtns.forEach(btn => {
-            if (btn.dataset.size === size) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
+    // ==========================================
+    // SIDEBARS
+    // ==========================================
+    setupSidebars() {
+        const overlay = document.getElementById('overlay');
+
+        // Close buttons
+        document.getElementById('closeRefSidebar').addEventListener('click', () => this.closeSidebar('refSidebar'));
+        document.getElementById('closeConcSidebar').addEventListener('click', () => this.closeSidebar('concordanceSidebar'));
+        document.getElementById('closeUserSidebar').addEventListener('click', () => this.closeSidebar('userSidebar'));
+
+        overlay.addEventListener('click', () => this.closeAllSidebars());
+
+        // User sidebar tabs
+        document.querySelectorAll('.sidebar-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                this.renderUserSidebarTab(tab.dataset.tab);
+            });
+        });
+    }
+
+    openSidebar(id) {
+        this.closeAllSidebars();
+        document.getElementById(id).classList.add('active');
+        document.getElementById('overlay').classList.add('active');
+    }
+
+    closeSidebar(id) {
+        document.getElementById(id).classList.remove('active');
+        document.getElementById('overlay').classList.remove('active');
+    }
+
+    closeAllSidebars() {
+        document.querySelectorAll('.sidebar').forEach(s => s.classList.remove('active'));
+        document.getElementById('overlay').classList.remove('active');
+    }
+
+    // ==========================================
+    // REFERENCES
+    // ==========================================
+    showReferences(bookId, chapter, verse) {
+        const key = `${bookId}_${chapter}`;
+        const refs = (typeof CROSS_REFERENCES !== 'undefined' && CROSS_REFERENCES[key] && CROSS_REFERENCES[key][verse]) || [];
+        const body = document.getElementById('refSidebarBody');
+        const book = BIBLE_BOOKS.find(b => b.id === bookId);
+
+        if (refs.length === 0) {
+            body.innerHTML = '<div class="sidebar-empty"><div class="sidebar-empty-icon">&#128279;</div>No hay referencias para este versículo</div>';
+        } else {
+            let html = `<div style="margin-bottom:12px;font-size:0.85em;color:var(--text-tertiary)">${book ? book.name : bookId} ${chapter}:${verse} — ${refs.length} referencias</div>`;
+            refs.forEach(ref => {
+                html += `<div class="ref-item" data-ref="${ref}">
+                    <div class="ref-item-header">${ref}</div>
+                </div>`;
+            });
+            body.innerHTML = html;
+
+            // Click to navigate
+            body.querySelectorAll('.ref-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const refText = item.dataset.ref;
+                    this.navigateToReference(refText);
+                });
+            });
+        }
+
+        this.openSidebar('refSidebar');
+    }
+
+    navigateToReference(refText) {
+        // Parse reference like "Gn 1:1" or "1 Co 3:16"
+        const abbrMap = {};
+        BIBLE_BOOKS.forEach(b => { abbrMap[b.abbr.toLowerCase()] = b; });
+
+        // Try to match
+        const match = refText.match(/^(.+?)\s+(\d+):?(\d+)?/);
+        if (!match) return;
+
+        let abbr = match[1].trim().toLowerCase();
+        const chapter = parseInt(match[2]);
+
+        // Find book by abbreviation
+        let book = null;
+        for (const [key, val] of Object.entries(abbrMap)) {
+            if (key === abbr || key.replace(/\s/g, '') === abbr.replace(/\s/g, '')) {
+                book = val;
+                break;
             }
+        }
+
+        if (book) {
+            this.closeSidebar('refSidebar');
+            this.selectBook(book.id);
+            this.loadChapter(chapter);
+            if (match[3]) {
+                setTimeout(() => {
+                    const verseEl = document.querySelector(`.verse[data-verse="${match[3]}"]`);
+                    if (verseEl) {
+                        verseEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        verseEl.classList.add('selected');
+                        setTimeout(() => verseEl.classList.remove('selected'), 2000);
+                    }
+                }, 300);
+            }
+        }
+    }
+
+    // ==========================================
+    // CONCORDANCE
+    // ==========================================
+    addConcordanceMarkup(text) {
+        return text.replace(/\b([A-ZÁÉÍÓÚÑa-záéíóúñ]{4,})\b/g, (match) => {
+            if (this.commonWords.has(match.toLowerCase())) return match;
+            return `<span class="concordance-word">${match}</span>`;
+        });
+    }
+
+    showConcordance(word) {
+        const normalizedWord = word.toLowerCase();
+        const body = document.getElementById('concordanceSidebarBody');
+
+        // Check cache
+        if (!this.concordanceCache[normalizedWord]) {
+            this.concordanceCache[normalizedWord] = this.searchWordInBible(normalizedWord);
+        }
+
+        const results = this.concordanceCache[normalizedWord];
+        let html = `<div class="concordance-word-title">"${word}"</div>`;
+        html += `<div class="concordance-count">${results.length} apariciones encontradas</div>`;
+
+        results.slice(0, 100).forEach(r => {
+            html += `<div class="concordance-item" data-book="${r.book}" data-chapter="${r.chapter}">
+                <div class="concordance-item-ref">${r.bookName} ${r.chapter}:${r.verse}</div>
+                <div class="concordance-item-text">${r.context}</div>
+            </div>`;
         });
 
-        // Guardar preferencia
-        localStorage.setItem('bibliaFontSize', size);
+        if (results.length > 100) {
+            html += `<div style="padding:10px;text-align:center;color:var(--text-tertiary);font-size:0.85em">... y ${results.length - 100} apariciones más</div>`;
+        }
+
+        body.innerHTML = html;
+
+        // Click to navigate
+        body.querySelectorAll('.concordance-item').forEach(item => {
+            item.addEventListener('click', () => {
+                this.closeSidebar('concordanceSidebar');
+                this.selectBook(item.dataset.book);
+                this.loadChapter(parseInt(item.dataset.chapter));
+            });
+        });
+
+        this.openSidebar('concordanceSidebar');
     }
 
-    // ============================================
-    // BÚSQUEDA INTELIGENTE
-    // ============================================
+    searchWordInBible(word) {
+        const results = [];
+        if (typeof BIBLE_DATA === 'undefined') return results;
 
+        const regex = new RegExp(`\\b${word}\\b`, 'i');
+
+        for (const book of BIBLE_BOOKS) {
+            const bookData = BIBLE_DATA[book.id];
+            if (!bookData) continue;
+
+            for (const [ch, verses] of Object.entries(bookData)) {
+                for (const [v, text] of Object.entries(verses)) {
+                    if (regex.test(text)) {
+                        // Extract context
+                        const idx = text.toLowerCase().indexOf(word);
+                        const start = Math.max(0, idx - 30);
+                        const end = Math.min(text.length, idx + word.length + 30);
+                        let context = (start > 0 ? '...' : '') + text.substring(start, end) + (end < text.length ? '...' : '');
+
+                        results.push({ book: book.id, bookName: book.name, chapter: parseInt(ch), verse: parseInt(v), context });
+                    }
+                }
+            }
+        }
+        return results;
+    }
+
+    buildCommonWordsList() {
+        const words = ['que', 'los', 'las', 'del', 'por', 'para', 'con', 'una', 'como', 'pero', 'sus',
+            'son', 'todo', 'esto', 'esta', 'fue', 'ser', 'hay', 'les', 'desde', 'cuando', 'sobre',
+            'dijo', 'ellos', 'ella', 'entre', 'tiene', 'todos', 'sino', 'porque', 'también',
+            'será', 'muy', 'hasta', 'hizo', 'después', 'puede', 'casa', 'ante', 'eran', 'este',
+            'otros', 'otra', 'más', 'dios', 'señor', 'hijos', 'había', 'tierra', 'jehová',
+            'pueblo', 'hijo', 'israel', 'hombre', 'hombres', 'rey', 'entonces', 'cada',
+            'tiempo', 'ahora', 'aquel', 'ellas', 'modo', 'allí', 'así', 'donde', 'aquí', 'algo',
+            'tras', 'hacer', 'cosas', 'dicho', 'sido', 'tienen', 'parte', 'mismo', 'todas',
+            'pues', 'estaba', 'bien', 'decir', 'estos', 'estas'];
+        return new Set(words);
+    }
+
+    // ==========================================
+    // SEARCH
+    // ==========================================
     setupSearch() {
-        const searchInput = document.getElementById('searchInput');
-        const searchClear = document.getElementById('searchClear');
-        const searchResults = document.getElementById('searchResults');
-        const searchIcon = document.getElementById('searchIcon');
+        const input = document.getElementById('searchInput');
+        const results = document.getElementById('searchResults');
 
-        if (!searchInput) return;
+        input.addEventListener('input', () => {
+            clearTimeout(this.searchTimeout);
+            const query = input.value.trim();
 
-        // Event listener para búsqueda en tiempo real
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.trim();
-
-            // Mostrar/ocultar botón de limpiar
-            if (query) {
-                searchClear.classList.add('active');
-                searchIcon.style.display = 'none';
-            } else {
-                searchClear.classList.remove('active');
-                searchIcon.style.display = 'block';
-                searchResults.classList.remove('active');
+            if (query.length < 3) {
+                results.classList.remove('active');
                 return;
             }
 
-            // Debounce - esperar 300ms después de que el usuario deje de escribir
-            clearTimeout(this.searchTimeout);
             this.searchTimeout = setTimeout(() => {
                 this.performSearch(query);
             }, 300);
         });
 
-        // Botón limpiar búsqueda
-        searchClear.addEventListener('click', () => {
-            searchInput.value = '';
-            searchClear.classList.remove('active');
-            searchIcon.style.display = 'block';
-            searchResults.classList.remove('active');
-            searchInput.focus();
-        });
-
-        // Cerrar resultados al hacer clic fuera
-        document.addEventListener('click', (e) => {
-            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
-                searchResults.classList.remove('active');
+        input.addEventListener('focus', () => {
+            if (input.value.trim().length >= 3) {
+                results.classList.add('active');
             }
         });
 
-        // Reabrir resultados al hacer focus si hay búsqueda
-        searchInput.addEventListener('focus', () => {
-            if (searchInput.value.trim()) {
-                searchResults.classList.add('active');
-            }
-        });
-
-        // Atajos de teclado para navegación en resultados
-        let selectedIndex = -1;
-        searchInput.addEventListener('keydown', (e) => {
-            const items = searchResults.querySelectorAll('.search-result-item');
-
+        input.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                searchResults.classList.remove('active');
-                searchInput.blur();
-                selectedIndex = -1;
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (items.length > 0) {
-                    selectedIndex = (selectedIndex + 1) % items.length;
-                    this.highlightSearchResult(items, selectedIndex);
-                }
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (items.length > 0) {
-                    selectedIndex = selectedIndex <= 0 ? items.length - 1 : selectedIndex - 1;
-                    this.highlightSearchResult(items, selectedIndex);
-                }
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (selectedIndex >= 0 && items[selectedIndex]) {
-                    items[selectedIndex].click();
-                    selectedIndex = -1;
-                }
-            }
-        });
-
-        // Reset selection cuando cambie el input
-        searchInput.addEventListener('input', () => {
-            selectedIndex = -1;
-        });
-    }
-
-    // Resaltar resultado seleccionado con teclado
-    highlightSearchResult(items, selectedIndex) {
-        items.forEach((item, index) => {
-            if (index === selectedIndex) {
-                item.style.background = 'rgba(102, 126, 234, 0.2)';
-                item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-            } else {
-                item.style.background = '';
+                results.classList.remove('active');
+                input.blur();
             }
         });
     }
 
     buildSearchIndex() {
-        console.log('📚 Construyendo índice de búsqueda optimizado...');
+        // Build a lightweight index for faster searching
+        this.searchIndex = [];
+        if (typeof BIBLE_DATA === 'undefined') return;
 
-        this.searchIndex = {
-            titles: []
-            // NO indexamos versículos completos para ahorrar memoria
-            // Los buscaremos on-demand cuando sea necesario
-        };
-
-        // Indexar solo títulos de secciones (lightweight)
-        if (typeof SECTION_TITLES !== 'undefined') {
-            for (const [bookChapter, titles] of Object.entries(SECTION_TITLES)) {
-                const [bookId, chapter] = bookChapter.split('_');
-                const book = BIBLE_BOOKS.find(b => b.id === bookId);
-
-                if (book) {
-                    titles.forEach(titleData => {
-                        this.searchIndex.titles.push({
-                            bookId,
-                            bookName: book.name,
-                            chapter: parseInt(chapter),
-                            verse: titleData.verse,
-                            title: titleData.title,
-                            searchText: this.normalizeText(titleData.title)
-                        });
+        for (const book of BIBLE_BOOKS) {
+            const bookData = BIBLE_DATA[book.id];
+            if (!bookData) continue;
+            for (const [ch, verses] of Object.entries(bookData)) {
+                for (const [v, text] of Object.entries(verses)) {
+                    this.searchIndex.push({
+                        book: book.id,
+                        bookName: book.name,
+                        chapter: parseInt(ch),
+                        verse: parseInt(v),
+                        text: text.toLowerCase()
                     });
                 }
             }
         }
-
-        console.log(`✅ Índice optimizado: ${this.searchIndex.titles.length} títulos`);
-        console.log('💡 Versículos se buscan on-demand para ahorrar memoria');
-    }
-
-    normalizeText(text) {
-        // Normalizar texto para búsqueda (sin acentos, minúsculas)
-        return text
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, ''); // Eliminar acentos
     }
 
     performSearch(query) {
-        const searchResults = document.getElementById('searchResults');
+        const results = document.getElementById('searchResults');
+        const normalizedQuery = query.toLowerCase();
+        const matches = [];
 
-        if (!query || query.length < 2) {
-            searchResults.classList.remove('active');
-            return;
-        }
+        // Check for reference pattern first (e.g., "Juan 3:16")
+        const refMatch = query.match(/^(\d?\s*[a-záéíóúñ]+)\s+(\d+):?(\d+)?$/i);
+        if (refMatch) {
+            const bookQuery = refMatch[1].trim().toLowerCase();
+            const chapter = parseInt(refMatch[2]);
+            const verse = refMatch[3] ? parseInt(refMatch[3]) : null;
 
-        // Mostrar indicador de carga
-        searchResults.innerHTML = '<div class="search-loading">🔍 Buscando...</div>';
-        searchResults.classList.add('active');
-
-        const normalizedQuery = this.normalizeText(query);
-        const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 1);
-
-        // FASE 1: Buscar en títulos (indexados en memoria)
-        let titleResults = [];
-        if (this.searchIndex.titles) {
-            titleResults = this.searchIndex.titles
-                .filter(item => queryWords.every(word => item.searchText.includes(word)))
-                .slice(0, 10); // Máximo 10 títulos
-        }
-
-        // FASE 2: Buscar en versículos ON-DEMAND (más eficiente)
-        let verseResults = [];
-        if (titleResults.length < 5 && typeof BIBLE_TEXT !== 'undefined') {
-            const maxVerses = 20 - titleResults.length;
-            verseResults = this.searchVersesOnDemand(queryWords, maxVerses);
-        }
-
-        // Mostrar resultados
-        this.displaySearchResults(titleResults, verseResults, query);
-    }
-
-    // Búsqueda on-demand de versículos (no indexa todo en memoria)
-    searchVersesOnDemand(queryWords, maxResults) {
-        const results = [];
-        let count = 0;
-
-        // Iterar sobre BIBLE_TEXT directamente sin indexar todo
-        for (const [bookChapter, verses] of Object.entries(BIBLE_TEXT)) {
-            if (count >= maxResults) break;
-
-            const [bookId, chapter] = bookChapter.split('_');
-            const book = BIBLE_BOOKS.find(b => b.id === bookId);
-
-            if (!book || !Array.isArray(verses)) continue;
-
-            for (const verseData of verses) {
-                if (count >= maxResults) break;
-
-                const normalizedText = this.normalizeText(verseData.text);
-
-                // Verificar si todas las palabras están en el versículo
-                if (queryWords.every(word => normalizedText.includes(word))) {
-                    results.push({
-                        bookId,
-                        bookName: book.name,
-                        chapter: parseInt(chapter),
-                        verse: verseData.verse,
-                        text: verseData.text
-                    });
-                    count++;
-                }
-            }
-        }
-
-        return results;
-    }
-
-    displaySearchResults(titleResults, verseResults, query) {
-        const searchResults = document.getElementById('searchResults');
-        const totalResults = titleResults.length + verseResults.length;
-
-        if (totalResults === 0) {
-            searchResults.innerHTML = `
-                <div class="search-no-results">
-                    <div class="search-no-results-icon">😔</div>
-                    <div>No se encontraron resultados para "<strong>${this.escapeHtml(query)}</strong>"</div>
-                    <div style="font-size: 0.85em; margin-top: 10px; color: #999;">
-                        Intenta con otras palabras clave
-                    </div>
-                </div>
-            `;
-            return;
-        }
-
-        let html = '';
-
-        // Contador de resultados
-        html += `<div class="search-results-header" style="background: #667eea; color: white; font-weight: 700;">
-            ✨ ${totalResults} resultado${totalResults !== 1 ? 's' : ''} encontrado${totalResults !== 1 ? 's' : ''}
-        </div>`;
-
-        // Mostrar resultados de títulos
-        if (titleResults.length > 0) {
-            html += '<div class="search-results-header">📋 TÍTULOS DE SECCIONES</div>';
-            titleResults.forEach(result => {
-                const highlightedTitle = this.highlightTextImproved(result.title, query);
-                html += `
-                    <div class="search-result-item" onclick="app.navigateToVerse('${result.bookId}', ${result.chapter}, ${result.verse})">
-                        <div class="search-result-title">${highlightedTitle}</div>
-                        <div class="search-result-reference">${result.bookName} ${result.chapter}:${result.verse}</div>
-                    </div>
-                `;
-            });
-        }
-
-        // Mostrar resultados de versículos
-        if (verseResults.length > 0) {
-            html += '<div class="search-results-header">📖 VERSÍCULOS</div>';
-            verseResults.forEach(result => {
-                const highlightedText = this.highlightTextImproved(result.text, query);
-                // Truncar texto si es muy largo
-                const truncatedText = highlightedText.length > 150
-                    ? highlightedText.substring(0, 150) + '...'
-                    : highlightedText;
-
-                html += `
-                    <div class="search-result-item" onclick="app.navigateToVerse('${result.bookId}', ${result.chapter}, ${result.verse})">
-                        <div class="search-result-reference">${result.bookName} ${result.chapter}:${result.verse}</div>
-                        <div class="search-result-text">${truncatedText}</div>
-                    </div>
-                `;
-            });
-        }
-
-        searchResults.innerHTML = html;
-    }
-
-    highlightText(text, query) {
-        return this.highlightTextImproved(text, query);
-    }
-
-    // Método mejorado que maneja acentos correctamente
-    highlightTextImproved(text, query) {
-        const words = query.trim().split(/\s+/).filter(w => w.length > 1);
-        let result = this.escapeHtml(text);
-
-        words.forEach(word => {
-            // Crear patrón que ignore acentos para cada palabra
-            const pattern = this.createAccentInsensitivePattern(word);
-            const regex = new RegExp(pattern, 'gi');
-
-            result = result.replace(regex, match =>
-                `<span class="search-result-highlight">${match}</span>`
+            const book = BIBLE_BOOKS.find(b =>
+                b.name.toLowerCase().startsWith(bookQuery) ||
+                b.id.toLowerCase() === bookQuery ||
+                b.abbr.toLowerCase() === bookQuery
             );
+
+            if (book) {
+                this.closeAllDropdowns();
+                this.selectBook(book.id);
+                this.loadChapter(chapter);
+                if (verse) {
+                    setTimeout(() => {
+                        const verseEl = document.querySelector(`.verse[data-verse="${verse}"]`);
+                        if (verseEl) {
+                            verseEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            verseEl.classList.add('selected');
+                            setTimeout(() => verseEl.classList.remove('selected'), 2000);
+                        }
+                    }, 300);
+                }
+                return;
+            }
+        }
+
+        // Text search
+        for (const entry of this.searchIndex) {
+            if (entry.text.includes(normalizedQuery)) {
+                matches.push(entry);
+                if (matches.length >= 30) break;
+            }
+        }
+
+        if (matches.length === 0) {
+            results.innerHTML = '<div class="search-no-results">No se encontraron resultados</div>';
+        } else {
+            let html = '';
+            matches.forEach(m => {
+                const idx = m.text.indexOf(normalizedQuery);
+                const start = Math.max(0, idx - 40);
+                const end = Math.min(m.text.length, idx + normalizedQuery.length + 40);
+                let snippet = m.text.substring(start, end);
+                snippet = snippet.replace(new RegExp(normalizedQuery, 'gi'), '<mark>$&</mark>');
+
+                html += `<div class="search-result-item" data-book="${m.book}" data-chapter="${m.chapter}" data-verse="${m.verse}">
+                    <div class="search-result-ref">${m.bookName} ${m.chapter}:${m.verse}</div>
+                    <div class="search-result-text">${start > 0 ? '...' : ''}${snippet}${end < m.text.length ? '...' : ''}</div>
+                </div>`;
+            });
+            results.innerHTML = html;
+
+            results.querySelectorAll('.search-result-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    this.selectBook(item.dataset.book);
+                    this.loadChapter(parseInt(item.dataset.chapter));
+                    results.classList.remove('active');
+                    document.getElementById('searchInput').value = '';
+
+                    setTimeout(() => {
+                        const verseEl = document.querySelector(`.verse[data-verse="${item.dataset.verse}"]`);
+                        if (verseEl) {
+                            verseEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            verseEl.classList.add('selected');
+                            setTimeout(() => verseEl.classList.remove('selected'), 2000);
+                        }
+                    }, 300);
+                });
+            });
+        }
+
+        results.classList.add('active');
+    }
+
+    // ==========================================
+    // TOOLBAR
+    // ==========================================
+    setupToolbar() {
+        document.getElementById('toggleRefs').addEventListener('click', () => {
+            this.referencesVisible = !this.referencesVisible;
+            document.getElementById('toggleRefs').classList.toggle('active', this.referencesVisible);
+            if (this.currentBook && this.currentChapter) {
+                this.loadChapter(this.currentChapter);
+            }
         });
 
-        return result;
-    }
-
-    // Crear patrón regex que ignore acentos
-    createAccentInsensitivePattern(word) {
-        const accentMap = {
-            'a': '[aáàäâ]', 'e': '[eéèëê]', 'i': '[iíìïî]',
-            'o': '[oóòöô]', 'u': '[uúùüû]', 'n': '[nñ]',
-            'A': '[AÁÀÄÂ]', 'E': '[EÉÈËÊ]', 'I': '[IÍÌÏÎ]',
-            'O': '[OÓÒÖÔ]', 'U': '[UÚÙÜÛ]', 'N': '[NÑ]'
-        };
-
-        return word.split('').map(char => {
-            // Si el caracter tiene variantes con acento, usar el patrón
-            const normalChar = char.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            if (accentMap[normalChar]) {
-                return accentMap[normalChar];
+        document.getElementById('toggleConcordance').addEventListener('click', () => {
+            this.concordanceEnabled = !this.concordanceEnabled;
+            document.getElementById('toggleConcordance').classList.toggle('active', this.concordanceEnabled);
+            localStorage.setItem('biblia_concordance', this.concordanceEnabled);
+            if (this.currentBook && this.currentChapter) {
+                this.loadChapter(this.currentChapter);
             }
-            // Si ya tiene acento, crear patrón para ese caracter
-            if (char !== normalChar && /[a-záéíóúñ]/i.test(normalChar)) {
-                return accentMap[normalChar] || char;
-            }
-            // Para otros caracteres, escapar si es necesario
-            return char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }).join('');
+            this.toast(this.concordanceEnabled ? 'Concordancias activadas' : 'Concordancias desactivadas');
+        });
+
+        document.getElementById('toggleFavorites').addEventListener('click', () => {
+            this.renderUserSidebarTab('favorites');
+            document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'favorites'));
+            this.openSidebar('userSidebar');
+        });
+
+        document.getElementById('toggleNotes').addEventListener('click', () => {
+            this.renderUserSidebarTab('notes');
+            document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'notes'));
+            this.openSidebar('userSidebar');
+        });
+
+        document.getElementById('toggleHistory').addEventListener('click', () => {
+            this.renderUserSidebarTab('history');
+            document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'history'));
+            this.openSidebar('userSidebar');
+        });
+
+        // Restore concordance state
+        if (localStorage.getItem('biblia_concordance') === 'true') {
+            this.concordanceEnabled = true;
+            document.getElementById('toggleConcordance').classList.add('active');
+        }
     }
 
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+    // ==========================================
+    // FONT SIZE
+    // ==========================================
+    setupFontSize() {
+        const saved = localStorage.getItem('biblia_fontsize') || 'lg';
+        this.setFontSize(saved);
+
+        document.querySelectorAll('.font-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setFontSize(btn.dataset.size);
+            });
+        });
     }
 
-    navigateToVerse(bookId, chapter, verse) {
-        // Cerrar resultados de búsqueda
-        const searchResults = document.getElementById('searchResults');
-        searchResults.classList.remove('active');
+    setFontSize(size) {
+        this.currentFontSize = size;
+        document.body.className = document.body.className.replace(/font-\w+/g, '').trim();
+        document.body.classList.add(`font-${size}`);
+        document.querySelectorAll('.font-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.size === size);
+        });
+        localStorage.setItem('biblia_fontsize', size);
+    }
 
-        // Buscar el libro
-        const book = BIBLE_BOOKS.find(b => b.id === bookId);
-        if (!book) {
-            console.error('Libro no encontrado:', bookId);
+    // ==========================================
+    // USER SIDEBAR (Favorites, Notes, History)
+    // ==========================================
+    renderUserSidebarTab(tab) {
+        const body = document.getElementById('userSidebarBody');
+        const title = document.getElementById('userSidebarTitle');
+
+        if (tab === 'favorites') {
+            title.innerHTML = '&#9829; Favoritos';
+            this.renderFavoritesList(body);
+        } else if (tab === 'notes') {
+            title.innerHTML = '&#9998; Notas';
+            this.renderNotesList(body);
+        } else if (tab === 'history') {
+            title.innerHTML = '&#128340; Historial';
+            this.renderHistoryList(body);
+        }
+    }
+
+    renderFavoritesList(container) {
+        const entries = Object.entries(this.favorites).sort((a, b) => (b[1].date || 0) - (a[1].date || 0));
+
+        if (entries.length === 0) {
+            container.innerHTML = '<div class="sidebar-empty"><div class="sidebar-empty-icon">&#9829;</div>No tienes favoritos aún. Toca un versículo para agregarlo.</div>';
             return;
         }
 
-        // Navegar al libro y capítulo
-        this.currentBook = bookId;
-        this.currentBookData = book;
-        this.currentChapter = chapter;
-
-        // Actualizar UI del libro
-        document.getElementById('customBookLabel').textContent = `${book.name} ${chapter}`;
-
-        // Poblar el dropdown de capítulos y seleccionar el capítulo actual
-        this.populateChapterSelect(book.chapters);
-        document.getElementById('chapterSelect').value = chapter;
-
-        // Cargar capítulo
-        this.loadChapter();
-
-        // Scroll al versículo específico después de un pequeño delay
-        setTimeout(() => {
-            const verseElement = document.querySelector(`[data-verse="${verse}"]`);
-            if (verseElement) {
-                verseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                verseElement.classList.add('highlight');
-
-                // Remover highlight después de 5 segundos
-                setTimeout(() => {
-                    verseElement.classList.remove('highlight');
-                }, 5000);
-            } else {
-                // Si no se encuentra el elemento, scroll al inicio
-                console.warn('Versículo no encontrado en DOM:', verse);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-        }, 500);
-    }
-
-    // ============================================
-    // SISTEMA DE CONCORDANCIAS BÍBLICAS
-    // ============================================
-
-    buildCommonWordsList() {
-        // Lista de palabras comunes a ignorar en español
-        return new Set([
-            'a', 'al', 'ante', 'bajo', 'con', 'contra', 'de', 'del', 'desde', 'durante',
-            'en', 'entre', 'hacia', 'hasta', 'para', 'por', 'según', 'sin', 'sobre', 'tras',
-            'el', 'la', 'lo', 'los', 'las', 'un', 'una', 'unos', 'unas',
-            'y', 'e', 'ni', 'que', 'o', 'u', 'pero', 'mas', 'sino',
-            'yo', 'tú', 'él', 'ella', 'nosotros', 'vosotros', 'ellos', 'ellas',
-            'me', 'te', 'se', 'nos', 'os', 'le', 'les', 'mi', 'tu', 'su', 'mis', 'tus', 'sus',
-            'este', 'esta', 'estos', 'estas', 'ese', 'esa', 'esos', 'esas', 'aquel', 'aquella', 'aquellos', 'aquellas',
-            'muy', 'más', 'menos', 'poco', 'mucho', 'todo', 'toda', 'todos', 'todas',
-            'algún', 'alguna', 'algunos', 'algunas', 'ningún', 'ninguna', 'ningunos', 'ningunas',
-            'cuando', 'donde', 'como', 'cual', 'cuales', 'quien', 'quienes', 'cuanto', 'cuanta', 'cuantos', 'cuantas',
-            'si', 'no', 'ni', 'tampoco', 'también',
-            'ser', 'estar', 'haber', 'tener', 'hacer', 'poder', 'decir', 'ir', 'ver', 'dar', 'saber', 'querer',
-            'es', 'son', 'era', 'fueron', 'fue', 'ha', 'han', 'había', 'habían',
-            'tiene', 'tienen', 'tenía', 'tenían', 'tuvo', 'tuvieron',
-            'hace', 'hacen', 'hacía', 'hacían', 'hizo', 'hicieron',
-            'puede', 'pueden', 'podía', 'podían', 'pudo', 'pudieron',
-            'dice', 'dicen', 'decía', 'decían', 'dijo', 'dijeron',
-            'va', 'van', 'iba', 'iban', 'vio', 'vieron',
-            'da', 'dan', 'daba', 'daban', 'dio', 'dieron',
-            'sabe', 'saben', 'sabía', 'sabían', 'supo', 'supieron',
-            'quiere', 'quieren', 'quería', 'querían', 'quiso', 'quisieron'
-        ]);
-    }
-
-    loadConcordancePreference() {
-        const saved = localStorage.getItem('concordanceEnabled');
-        if (saved !== null) {
-            this.concordanceEnabled = saved === 'true';
-            this.updateConcordanceButton();
-        }
-    }
-
-    setupConcordanceClickHandler() {
-        // Event delegation: escuchar clicks en el contenedor padre
-        document.addEventListener('click', (e) => {
-            // Verificar si el click fue en una palabra de concordancia
-            const target = e.target;
-            if (target && target.classList && target.classList.contains('concordance-word')) {
-                e.stopPropagation();
-                const word = target.getAttribute('data-word');
-                if (word) {
-                    this.showConcordance(word);
-                }
-            }
+        let html = '<ul class="favorites-list">';
+        entries.forEach(([key, fav]) => {
+            html += `<li data-key="${key}" data-book="${fav.book}" data-chapter="${fav.chapter}" data-verse="${fav.verse}">
+                <button class="fav-remove" data-key="${key}" title="Eliminar">&#10005;</button>
+                <div class="fav-ref">${fav.bookName} ${fav.chapter}:${fav.verse}</div>
+                <div class="fav-text">${fav.text || ''}</div>
+            </li>`;
         });
-    }
+        html += '</ul>';
+        container.innerHTML = html;
 
-    toggleConcordanceMode() {
-        this.concordanceEnabled = !this.concordanceEnabled;
-        localStorage.setItem('concordanceEnabled', this.concordanceEnabled);
-        this.updateConcordanceButton();
-
-        // Recargar capítulo actual para aplicar/quitar concordancias
-        if (this.currentBook && this.currentChapter) {
-            this.loadChapter();
-        }
-    }
-
-    updateConcordanceButton() {
-        const btn = document.getElementById('toggleConcordanceBtn');
-        const icon = document.getElementById('concordanceToggleIcon');
-
-        if (this.concordanceEnabled) {
-            btn.style.background = '#667eea';
-            btn.style.color = 'white';
-            btn.style.borderColor = '#667eea';
-            icon.textContent = '📖';
-        } else {
-            btn.style.background = 'white';
-            btn.style.color = '#555';
-            btn.style.borderColor = '#e0e0e0';
-            icon.textContent = '📕';
-        }
-    }
-
-    isValidConcordanceWord(word) {
-        // Limpiar puntuación
-        const cleaned = word.replace(/[.,;:!?¿¡()""«»]/g, '').toLowerCase();
-
-        // Ignorar palabras cortas o comunes
-        if (cleaned.length < 4 || this.commonWords.has(cleaned)) {
-            return false;
-        }
-
-        // Ignorar números
-        if (/^\d+$/.test(cleaned)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    processConcordanceWords(html) {
-        if (!this.concordanceEnabled) {
-            return html;
-        }
-
-        // Parsear HTML temporal
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
-
-        // Procesar cada verso
-        const verses = tempDiv.querySelectorAll('.verse');
-
-        verses.forEach(verseElement => {
-            // Obtener el texto del versículo (excluyendo número de verso y referencias)
-            const verseNumber = verseElement.querySelector('.verse-number');
-            const references = verseElement.querySelectorAll('.cross-reference, .ref-separator');
-
-            // Clonar para trabajar con texto sin modificar estructura
-            const textNodes = this.getTextNodes(verseElement);
-
-            textNodes.forEach(textNode => {
-                const text = textNode.textContent;
-                const words = text.split(/(\s+)/); // Mantener espacios
-
-                const fragment = document.createDocumentFragment();
-
-                words.forEach(word => {
-                    if (/^\s+$/.test(word)) {
-                        // Es un espacio, mantenerlo
-                        fragment.appendChild(document.createTextNode(word));
-                    } else if (this.isValidConcordanceWord(word)) {
-                        // Es una palabra válida, hacerla clickable
-                        const span = document.createElement('span');
-                        span.className = 'concordance-word';
-                        span.textContent = word;
-                        span.setAttribute('data-word', word.replace(/[.,;:!?¿¡()""«»]/g, ''));
-                        // NO agregamos onclick aquí - se maneja con event delegation
-                        fragment.appendChild(span);
-                    } else {
-                        // Palabra no válida, mantener como texto
-                        fragment.appendChild(document.createTextNode(word));
+        // Navigate on click
+        container.querySelectorAll('li').forEach(li => {
+            li.addEventListener('click', (e) => {
+                if (e.target.classList.contains('fav-remove')) return;
+                this.closeSidebar('userSidebar');
+                this.selectBook(li.dataset.book);
+                this.loadChapter(parseInt(li.dataset.chapter));
+                setTimeout(() => {
+                    const verseEl = document.querySelector(`.verse[data-verse="${li.dataset.verse}"]`);
+                    if (verseEl) {
+                        verseEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        verseEl.classList.add('selected');
+                        setTimeout(() => verseEl.classList.remove('selected'), 2000);
                     }
-                });
-
-                textNode.parentNode.replaceChild(fragment, textNode);
+                }, 300);
             });
         });
 
-        return tempDiv.innerHTML;
+        // Remove favorite
+        container.querySelectorAll('.fav-remove').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                delete this.favorites[btn.dataset.key];
+                this.saveData('biblia_favorites', this.favorites);
+                this.renderFavoritesList(container);
+                if (this.currentBook && this.currentChapter) this.loadChapter(this.currentChapter);
+                this.toast('Favorito eliminado');
+            });
+        });
     }
 
-    getTextNodes(element) {
-        const textNodes = [];
-        const walker = document.createTreeWalker(
-            element,
-            NodeFilter.SHOW_TEXT,
-            {
-                acceptNode: (node) => {
-                    // Excluir nodos dentro de elementos especiales
-                    const parent = node.parentNode;
-                    if (parent.classList && (
-                        parent.classList.contains('verse-number') ||
-                        parent.classList.contains('cross-reference') ||
-                        parent.classList.contains('ref-separator') ||
-                        parent.classList.contains('concordance-word')
-                    )) {
-                        return NodeFilter.FILTER_REJECT;
-                    }
-                    return NodeFilter.FILTER_ACCEPT;
-                }
-            }
-        );
+    renderNotesList(container) {
+        const entries = Object.entries(this.notes).sort((a, b) => (b[1].date || 0) - (a[1].date || 0));
 
-        let node;
-        while (node = walker.nextNode()) {
-            if (node.textContent.trim()) {
-                textNodes.push(node);
+        if (entries.length === 0) {
+            container.innerHTML = '<div class="sidebar-empty"><div class="sidebar-empty-icon">&#9998;</div>No tienes notas aún. Toca un versículo y selecciona "Nota".</div>';
+            return;
+        }
+
+        let html = '<ul class="notes-list">';
+        entries.forEach(([key, note]) => {
+            html += `<li data-key="${key}" data-book="${note.book}" data-chapter="${note.chapter}" data-verse="${note.verse}">
+                <button class="note-remove" data-key="${key}" title="Eliminar">&#10005;</button>
+                <div class="note-ref">${note.bookName} ${note.chapter}:${note.verse}</div>
+                <div class="note-text">${note.text}</div>
+            </li>`;
+        });
+        html += '</ul>';
+        container.innerHTML = html;
+
+        // Navigate
+        container.querySelectorAll('li').forEach(li => {
+            li.addEventListener('click', (e) => {
+                if (e.target.classList.contains('note-remove')) return;
+                this.closeSidebar('userSidebar');
+                this.selectBook(li.dataset.book);
+                this.loadChapter(parseInt(li.dataset.chapter));
+            });
+        });
+
+        // Remove note
+        container.querySelectorAll('.note-remove').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                delete this.notes[btn.dataset.key];
+                this.saveData('biblia_notes', this.notes);
+                this.renderNotesList(container);
+                if (this.currentBook && this.currentChapter) this.loadChapter(this.currentChapter);
+                this.toast('Nota eliminada');
+            });
+        });
+    }
+
+    renderHistoryList(container) {
+        if (this.history.length === 0) {
+            container.innerHTML = '<div class="sidebar-empty"><div class="sidebar-empty-icon">&#128340;</div>Tu historial de lectura aparecerá aquí.</div>';
+            return;
+        }
+
+        let html = '<ul class="history-list">';
+        this.history.slice(0, 50).forEach(h => {
+            const book = BIBLE_BOOKS.find(b => b.id === h.book);
+            const bookName = book ? book.name : h.book;
+            const date = new Date(h.date);
+            const dateStr = date.toLocaleDateString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+            html += `<li data-book="${h.book}" data-chapter="${h.chapter}">
+                <div class="history-ref">${bookName} ${h.chapter}</div>
+                <div class="history-date">${dateStr}</div>
+            </li>`;
+        });
+        html += '</ul>';
+        container.innerHTML = html;
+
+        container.querySelectorAll('li').forEach(li => {
+            li.addEventListener('click', () => {
+                this.closeSidebar('userSidebar');
+                this.selectBook(li.dataset.book);
+                this.loadChapter(parseInt(li.dataset.chapter));
+            });
+        });
+    }
+
+    // ==========================================
+    // READING HISTORY & PROGRESS
+    // ==========================================
+    addToHistory(bookId, chapter) {
+        const entry = { book: bookId, chapter, date: Date.now() };
+
+        // Avoid duplicate consecutive entries
+        if (this.history.length > 0 && this.history[0].book === bookId && this.history[0].chapter === chapter) {
+            this.history[0].date = Date.now();
+        } else {
+            this.history.unshift(entry);
+        }
+
+        // Keep last 200 entries
+        if (this.history.length > 200) this.history = this.history.slice(0, 200);
+        this.saveData('biblia_history', this.history);
+    }
+
+    updateReadingProgress() {
+        const totalChapters = BIBLE_BOOKS.reduce((sum, b) => sum + b.chapters, 0); // 1189
+        const readCount = Object.keys(this.readChapters).length;
+        const percentage = (readCount / totalChapters * 100).toFixed(1);
+        document.getElementById('readingProgress').style.width = `${percentage}%`;
+    }
+
+    // ==========================================
+    // VERSE OF THE DAY
+    // ==========================================
+    setupVerseOfDay() {
+        const votdVerses = [
+            { book: 'juan', chapter: 3, verse: 16, text: 'Porque de tal manera amó Dios al mundo, que ha dado a su Hijo unigénito, para que todo aquel que en él cree, no se pierda, mas tenga vida eterna.' },
+            { book: 'salmos', chapter: 23, verse: 1, text: 'Jehová es mi pastor; nada me faltará.' },
+            { book: 'filipenses', chapter: 4, verse: 13, text: 'Todo lo puedo en Cristo que me fortalece.' },
+            { book: 'romanos', chapter: 8, verse: 28, text: 'Y sabemos que a los que aman a Dios, todas las cosas les ayudan a bien, esto es, a los que conforme a su propósito son llamados.' },
+            { book: 'isaias', chapter: 41, verse: 10, text: 'No temas, porque yo estoy contigo; no desmayes, porque yo soy tu Dios que te esfuerzo; siempre te ayudaré, siempre te sustentaré con la diestra de mi justicia.' },
+            { book: 'jeremias', chapter: 29, verse: 11, text: 'Porque yo sé los pensamientos que tengo acerca de vosotros, dice Jehová, pensamientos de paz, y no de mal, para daros el fin que esperáis.' },
+            { book: 'proverbios', chapter: 3, verse: 5, text: 'Fíate de Jehová de todo tu corazón, Y no te apoyes en tu propia prudencia.' },
+            { book: 'salmos', chapter: 46, verse: 1, text: 'Dios es nuestro amparo y fortaleza, Nuestro pronto auxilio en las tribulaciones.' },
+            { book: 'mateo', chapter: 11, verse: 28, text: 'Venid a mí todos los que estáis trabajados y cargados, y yo os haré descansar.' },
+            { book: 'josue', chapter: 1, verse: 9, text: 'Mira que te mando que te esfuerces y seas valiente; no temas ni desmayes, porque Jehová tu Dios estará contigo en dondequiera que vayas.' },
+            { book: 'salmos', chapter: 27, verse: 1, text: 'Jehová es mi luz y mi salvación; ¿de quién temeré? Jehová es la fortaleza de mi vida; ¿de quién he de atemorizarme?' },
+            { book: 'romanos', chapter: 12, verse: 2, text: 'No os conforméis a este siglo, sino transformaos por medio de la renovación de vuestro entendimiento.' },
+            { book: 'salmos', chapter: 119, verse: 105, text: 'Lámpara es a mis pies tu palabra, Y lumbrera a mi camino.' },
+            { book: 'efesios', chapter: 2, verse: 8, text: 'Porque por gracia sois salvos por medio de la fe; y esto no de vosotros, pues es don de Dios.' },
+            { book: 'hebreos', chapter: 11, verse: 1, text: 'Es, pues, la fe la certeza de lo que se espera, la convicción de lo que no se ve.' },
+            { book: 'salmos', chapter: 91, verse: 1, text: 'El que habita al abrigo del Altísimo Morará bajo la sombra del Omnipotente.' },
+            { book: '1corintios', chapter: 13, verse: 4, text: 'El amor es sufrido, es benigno; el amor no tiene envidia, el amor no es jactancioso, no se envanece.' },
+            { book: 'galatas', chapter: 5, verse: 22, text: 'Mas el fruto del Espíritu es amor, gozo, paz, paciencia, benignidad, bondad, fe.' },
+            { book: 'juan', chapter: 14, verse: 6, text: 'Jesús le dijo: Yo soy el camino, y la verdad, y la vida; nadie viene al Padre, sino por mí.' },
+            { book: 'salmos', chapter: 37, verse: 4, text: 'Deléitate asimismo en Jehová, Y él te concederá las peticiones de tu corazón.' },
+            { book: 'mateo', chapter: 6, verse: 33, text: 'Mas buscad primeramente el reino de Dios y su justicia, y todas estas cosas os serán añadidas.' },
+            { book: 'romanos', chapter: 5, verse: 8, text: 'Mas Dios muestra su amor para con nosotros, en que siendo aún pecadores, Cristo murió por nosotros.' },
+            { book: '2timoteo', chapter: 1, verse: 7, text: 'Porque no nos ha dado Dios espíritu de cobardía, sino de poder, de amor y de dominio propio.' },
+            { book: 'salmos', chapter: 121, verse: 1, text: 'Alzaré mis ojos a los montes; ¿De dónde vendrá mi socorro?' },
+            { book: 'isaias', chapter: 40, verse: 31, text: 'Pero los que esperan a Jehová tendrán nuevas fuerzas; levantarán alas como las águilas; correrán, y no se cansarán; caminarán, y no se fatigarán.' },
+            { book: '1pedro', chapter: 5, verse: 7, text: 'Echando toda vuestra ansiedad sobre él, porque él tiene cuidado de vosotros.' },
+            { book: 'santiago', chapter: 1, verse: 5, text: 'Y si alguno de vosotros tiene falta de sabiduría, pídala a Dios, el cual da a todos abundantemente y sin reproche, y le será dada.' },
+            { book: 'salmos', chapter: 139, verse: 14, text: 'Te alabaré; porque formidables, maravillosas son tus obras; Estoy maravillado, Y mi alma lo sabe muy bien.' },
+            { book: 'juan', chapter: 1, verse: 1, text: 'En el principio era el Verbo, y el Verbo era con Dios, y el Verbo era Dios.' },
+            { book: 'apocalipsis', chapter: 21, verse: 4, text: 'Enjugará Dios toda lágrima de los ojos de ellos; y ya no habrá muerte, ni habrá más llanto, ni clamor, ni dolor; porque las primeras cosas pasaron.' },
+            { book: 'salmos', chapter: 100, verse: 5, text: 'Porque Jehová es bueno; para siempre es su misericordia, Y su verdad por todas las generaciones.' }
+        ];
+
+        // Pick based on day of year
+        const now = new Date();
+        const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+        const todayVerse = votdVerses[dayOfYear % votdVerses.length];
+        const bookInfo = BIBLE_BOOKS.find(b => b.id === todayVerse.book);
+        const bookName = bookInfo ? bookInfo.name : todayVerse.book;
+
+        document.getElementById('votdText').textContent = `"${todayVerse.text}"`;
+        document.getElementById('votdRef').textContent = `— ${bookName} ${todayVerse.chapter}:${todayVerse.verse}`;
+
+        // Click to navigate
+        document.getElementById('verseOfDay').addEventListener('click', (e) => {
+            if (e.target.id === 'shareVotd') return;
+            this.selectBook(todayVerse.book);
+            this.loadChapter(todayVerse.chapter);
+            setTimeout(() => {
+                const verseEl = document.querySelector(`.verse[data-verse="${todayVerse.verse}"]`);
+                if (verseEl) {
+                    verseEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    verseEl.classList.add('selected');
+                    setTimeout(() => verseEl.classList.remove('selected'), 2000);
+                }
+            }, 300);
+        });
+
+        // Share verse of the day
+        document.getElementById('shareVotd').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const shareText = `Versículo del día:\n"${todayVerse.text}"\n— ${bookName} ${todayVerse.chapter}:${todayVerse.verse} (RV1960)`;
+            if (navigator.share) {
+                navigator.share({ title: 'Versículo del Día', text: shareText }).catch(() => {});
+            } else {
+                navigator.clipboard.writeText(shareText).then(() => this.toast('Versículo copiado'));
+            }
+        });
+    }
+
+    // ==========================================
+    // WELCOME SCREEN
+    // ==========================================
+    showWelcomeScreen() {
+        const lastPosition = this.loadData('biblia_last_position');
+        const resumeBtn = document.getElementById('resumeReading');
+
+        if (lastPosition) {
+            const book = BIBLE_BOOKS.find(b => b.id === lastPosition.book);
+            if (book) {
+                resumeBtn.textContent = `\u25B6 Continuar: ${book.name} ${lastPosition.chapter}`;
+                resumeBtn.style.display = '';
+                resumeBtn.addEventListener('click', () => {
+                    this.selectBook(lastPosition.book);
+                    this.loadChapter(lastPosition.chapter);
+                });
             }
         }
 
-        return textNodes;
-    }
+        // Reading stats
+        const totalChapters = BIBLE_BOOKS.reduce((sum, b) => sum + b.chapters, 0);
+        const readCount = Object.keys(this.readChapters).length;
+        const favCount = Object.keys(this.favorites).length;
+        const noteCount = Object.keys(this.notes).length;
 
-    showConcordance(word) {
-        const wordNormalized = this.normalizeText(word);
-
-        // Mostrar panel
-        document.getElementById('concordanceOverlay').classList.add('active');
-        document.getElementById('concordancePanel').classList.add('active');
-
-        // Actualizar header
-        document.getElementById('concordanceWordTitle').textContent = word;
-        document.getElementById('concordanceCount').textContent = 'Buscando...';
-
-        const contentDiv = document.getElementById('concordanceContent');
-        contentDiv.innerHTML = `
-            <div class="concordance-loading">
-                <div class="concordance-loading-icon">📖</div>
-                <div>Buscando "${word}" en toda la Biblia...</div>
-            </div>
+        document.getElementById('readingStats').innerHTML = `
+            <div class="stat-card"><div class="stat-number">${readCount}</div><div class="stat-label">de ${totalChapters} capítulos</div></div>
+            <div class="stat-card"><div class="stat-number">${favCount}</div><div class="stat-label">favoritos</div></div>
+            <div class="stat-card"><div class="stat-number">${noteCount}</div><div class="stat-label">notas</div></div>
         `;
 
-        // Buscar en caché o hacer búsqueda
-        setTimeout(() => {
-            if (this.concordanceCache[wordNormalized]) {
-                this.displayConcordanceResults(word, this.concordanceCache[wordNormalized]);
-            } else {
-                const results = this.searchConcordance(wordNormalized);
-                this.concordanceCache[wordNormalized] = results;
-                this.displayConcordanceResults(word, results);
-            }
-        }, 100);
+        this.updateReadingProgress();
     }
 
-    searchConcordance(wordNormalized) {
-        const results = [];
-        const maxResults = 100;
+    // ==========================================
+    // KEYBOARD SHORTCUTS
+    // ==========================================
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Ignore if typing in input/textarea
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-        for (const [bookChapter, verses] of Object.entries(BIBLE_TEXT)) {
-            if (results.length >= maxResults) break;
+            if (e.key === 'Escape') {
+                this.closeAllDropdowns();
+                this.closeAllSidebars();
+                document.getElementById('verseActions').classList.remove('active');
+                document.getElementById('noteEditor').classList.remove('active');
+                return;
+            }
 
-            const [bookId, chapter] = bookChapter.split('_');
-            const book = BIBLE_BOOKS.find(b => b.id === bookId);
+            if (e.key === 'ArrowLeft') { e.preventDefault(); this.prevChapter(); }
+            if (e.key === 'ArrowRight') { e.preventDefault(); this.nextChapter(); }
+            if (e.key === 'f' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                document.getElementById('searchInput').focus();
+            }
+            if (e.key === 'd') {
+                document.getElementById('themeToggle').click();
+            }
+        });
+    }
 
-            if (!book || !Array.isArray(verses)) continue;
+    // ==========================================
+    // SWIPE GESTURES (Mobile)
+    // ==========================================
+    setupSwipeGestures() {
+        let startX = 0;
+        let startY = 0;
 
-            for (const verseData of verses) {
-                if (results.length >= maxResults) break;
+        const readingArea = document.getElementById('readingArea');
 
-                const normalizedText = this.normalizeText(verseData.text);
+        readingArea.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, { passive: true });
 
-                // Buscar palabra completa (con límites de palabra)
-                const regex = new RegExp(`\\b${wordNormalized}\\b`, 'i');
+        readingArea.addEventListener('touchend', (e) => {
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const diffX = endX - startX;
+            const diffY = endY - startY;
 
-                if (regex.test(normalizedText)) {
-                    results.push({
-                        bookId,
-                        bookName: book.name,
-                        chapter: parseInt(chapter),
-                        verse: verseData.verse,
-                        text: verseData.text
-                    });
+            // Only horizontal swipe (more horizontal than vertical, min 80px)
+            if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+                if (diffX > 0) {
+                    this.prevChapter();
+                } else {
+                    this.nextChapter();
                 }
             }
-        }
-
-        return results;
+        }, { passive: true });
     }
 
-    displayConcordanceResults(word, results) {
-        const contentDiv = document.getElementById('concordanceContent');
-        const countDiv = document.getElementById('concordanceCount');
-
-        if (results.length === 0) {
-            countDiv.textContent = 'No se encontraron resultados';
-            contentDiv.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">😔</div>
-                    <div>No se encontró "${word}" en la Biblia</div>
-                </div>
-            `;
-            return;
-        }
-
-        const displayCount = Math.min(results.length, 100);
-        countDiv.textContent = `${displayCount} ${displayCount === 1 ? 'versículo encontrado' : 'versículos encontrados'}${results.length > 100 ? ' (mostrando primeros 100)' : ''}`;
-
-        let html = '';
-        results.forEach(result => {
-            const highlightedText = this.highlightTextImproved(result.text, word);
-
-            html += `
-                <div class="concordance-item" onclick="app.navigateToConcordanceVerse('${result.bookId}', ${result.chapter}, ${result.verse})">
-                    <div class="concordance-reference">${result.bookName} ${result.chapter}:${result.verse}</div>
-                    <div class="concordance-text">${highlightedText}</div>
-                </div>
-            `;
-        });
-
-        contentDiv.innerHTML = html;
-    }
-
-    navigateToConcordanceVerse(bookId, chapter, verse) {
-        // Cerrar panel de concordancias
-        this.closeConcordance();
-
-        // Navegar al versículo
-        this.navigateToVerse(bookId, chapter, verse);
-    }
-
-    closeConcordance() {
-        document.getElementById('concordanceOverlay').classList.remove('active');
-        document.getElementById('concordancePanel').classList.remove('active');
-    }
-
-    // === FUNCIONES PARA MÓVIL ===
-
-    // Toggle del nav en móvil
-    toggleMobileNav() {
-        if (this.mobileNavCollapsed) {
-            this.expandMobileNav();
-        } else {
-            this.collapseMobileNav();
+    // ==========================================
+    // SERVICE WORKER (PWA)
+    // ==========================================
+    registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch(() => {});
         }
     }
 
-    // Colapsar nav en móvil
-    collapseMobileNav() {
-        const navBar = document.querySelector('.nav-bar');
-        const toggleBtn = document.getElementById('mobileNavToggle');
-        const toggleIcon = document.getElementById('navToggleIcon');
-
-        if (navBar) {
-            navBar.classList.add('collapsed');
-            document.body.classList.add('nav-collapsed');
-            this.mobileNavCollapsed = true;
-
-            if (toggleBtn) {
-                toggleBtn.classList.add('active');
-            }
-            if (toggleIcon) {
-                // Mostrar icono de menú cuando está colapsado
-                toggleIcon.textContent = '☰';
-            }
-        }
+    // ==========================================
+    // UTILITIES
+    // ==========================================
+    loadData(key) {
+        try {
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : null;
+        } catch { return null; }
     }
 
-    // Expandir nav en móvil
-    expandMobileNav() {
-        const navBar = document.querySelector('.nav-bar');
-        const toggleBtn = document.getElementById('mobileNavToggle');
-        const toggleIcon = document.getElementById('navToggleIcon');
+    saveData(key, data) {
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+        } catch { /* localStorage full */ }
+    }
 
-        if (navBar) {
-            navBar.classList.remove('collapsed');
-            document.body.classList.remove('nav-collapsed');
-            this.mobileNavCollapsed = false;
-
-            if (toggleBtn) {
-                toggleBtn.classList.remove('active');
-            }
-            if (toggleIcon) {
-                // Mostrar X cuando está expandido
-                toggleIcon.textContent = '×';
-            }
-        }
+    toast(message) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
     }
 }
 
-// Inicializar la aplicación cuando el DOM esté listo
-let app;
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        app = new BibliaApp();
-        window.app = app; // Exponer globalmente para onclick handlers
-    });
-} else {
-    app = new BibliaApp();
-    window.app = app; // Exponer globalmente para onclick handlers
-}
+// ==========================================
+// Initialize app
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    window.bibliaApp = new BibliaApp();
+});
